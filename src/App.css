@@ -1,0 +1,19 @@
+:root {
+  /* Inspired by the Return Stack website */
+  --brand-green: #A3E635;
+  --background-light: #F8FAFC;
+  --text-dark: #1E293B;
+  --bubble-user: #E2E8F0;
+  --bubble-assistant: #F0FDF4;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--background-light);
+  color: var(--text-dark);
+}
