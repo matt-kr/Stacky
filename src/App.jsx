@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
+import ChatInput from './components/ChatInput';
+import MessageList from './components/MessageList';
 
 function App() {
   const [count, setCount] = useState(0)
@@ -9,6 +9,8 @@ function App() {
   return (
    <div className="chatbot-container">
       <h1>Hello, Stacky!</h1>
+      <MessageList />
+      <ChatInput />
     </div>
   );
 }
