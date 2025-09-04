@@ -1,15 +1,21 @@
 export default function Message({ message }) {
   // The 'message' prop will have { text, sender, timestamp }
   const isUser = message.sender === 'user';
+  const senderName = isUser ? 'You' : 'Stacky';
+
+  const rowClass = isUser ? 'user-row' : 'assistant-row';
   const bubbleClass = isUser ? 'user-bubble' : 'assistant-bubble';
 
   return (
-    <div className={`message-row ${isUser ? 'user-row' : 'assistant-row'}`}>
+    <div className={`message-row ${rowClass}`}>
+      <div className="message-content">
+        <p className="sender-name">{senderName}</p>
+      
       <div className={`message-bubble ${bubbleClass}`}>
         <p className="message-text">{message.text}</p>
         <span className="message-timestamp">
-          {new Date(message.timestamp).toLocaleTimeString()}
-        </span>
+{new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}        </span>
+      </div>
       </div>
     </div>
   );
