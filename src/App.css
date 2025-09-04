@@ -1,12 +1,22 @@
+/* --- 1. Variables and Global Resets --- */
 :root {
-  /* Inspired by the Return Stack website */
+  /* Color Palette inspired by returnstack.ai */
   --brand-green: #A3E635;
-  --background-light: #F8FAFC;
+  --brand-green-light: #F0FDF4;
+  --background-light: #F1F5F9; /* A slightly off-white for the body */
+  --container-bg: #FFFFFF;
   --text-dark: #1E293B;
+  --text-light: #475569;
   --bubble-user: #E2E8F0;
-  --bubble-assistant: #F0FDF4;
+  --error-red: #EF4444;
 }
 
+/* A simple reset for consistent box-sizing */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Base body styles */
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -16,4 +26,168 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--background-light);
   color: var(--text-dark);
+}
+
+/* --- 2. Main Chat Container Layout (Mobile-First) --- */
+.chatbot-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--container-bg);
+}
+
+/* --- 3. Message List & Scrolling --- */
+.message-list {
+  flex-grow: 1; /* This is key: it makes the list take up all available space */
+  overflow-y: auto; /* Enables scrolling for long conversations */
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem; /* Creates space between message rows */
+}
+
+/* --- 4. Individual Message Styles --- */
+.message-row {
+  display: flex;
+}
+
+.assistant-row {
+  justify-content: flex-start;
+}
+
+.user-row {
+  justify-content: flex-end;
+}
+
+.message-content {
+  display: flex;
+  flex-direction: column;
+  max-width: 85%; /* Prevent messages from being too wide */
+}
+
+.sender-name {
+  font-size: 0.8rem;
+  color: var(--text-light);
+  margin: 0 0 0.25rem 0.75rem;
+  font-weight: 500;
+}
+
+.user-row .sender-name {
+  text-align: right;
+  margin-right: 0.75rem;
+}
+
+.message-bubble {
+  padding: 0.75rem 1rem;
+  border-radius: 1.25rem;
+  word-wrap: break-word; /* Ensure long words without spaces don't overflow */
+}
+
+.assistant-bubble {
+  background-color: var(--brand-green-light);
+  border: 1px solid #D9F99D;
+  border-top-left-radius: 0.25rem; /* "Squishes" one corner for a classic chat look */
+}
+
+.user-bubble {
+  background-color: var(--bubble-user);
+  border: 1px solid #CBD5E1;
+  border-top-right-radius: 0.25rem;
+}
+
+.message-text {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.message-timestamp {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-light);
+  margin-top: 0.25rem;
+  text-align: right;
+  opacity: 0.7;
+}
+
+/* --- 5. Chat Input Form --- */
+.chat-input-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background-color: var(--container-bg);
+  border-top: 1px solid var(--bubble-user);
+}
+
+.chat-input {
+  flex-grow: 1;
+  border: 1px solid #D1D5DB;
+  border-radius: 9999px; /* Pill shape */
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+}
+
+.chat-input:focus {
+  outline: none;
+  border-color: var(--brand-green);
+  box-shadow: 0 0 0 3px var(--brand-green-light);
+}
+
+.send-button {
+  background-color: var(--brand-green);
+  border: none;
+  border-radius: 50%; /* Circle shape */
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.send-button:hover {
+  background-color: #BEF264; /* A slightly lighter green for hover */
+}
+
+.send-button:disabled {
+  background-color: var(--bubble-user);
+  cursor: not-allowed;
+}
+
+/* Simple Send icon using CSS */
+.send-button::after {
+  content: '➤';
+  font-size: 1.25rem;
+  color: var(--text-dark);
+  transform: rotate(-30deg) translateX(1px);
+}
+
+
+/* --- 6. State Indicators (Loading & Error) --- */
+.typing-indicator {
+  padding: 0.75rem 1rem;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+.error-message {
+  padding: 0 1rem 0.5rem;
+  color: var(--error-red);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* --- 7. Desktop Enhancements --- */
+@media (min-width: 768px) {
+  .chatbot-container {
+    max-width: 700px;
+    height: 85vh;
+    max-height: 800px;
+    margin: 2rem auto;
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border: 1px solid #E2E8F0;
+  }
 }

@@ -1,7 +1,13 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect} from 'react';
+
 
 export default function ChatInput({ onSendMessage, isLoading }) {
   const [text, setText] = useState('');
+  const inputRef = useRef(null);
+  
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
 const handleSubmit = (e) => {
     e.preventDefault();
