@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import ChatInput from './components/ChatInput';
 import MessageList from './components/MessageList';
@@ -8,9 +8,18 @@ const API_URL = '/api/reply';
 
 
 function App() {
- const [messages, setMessages] = useState([]); // Array to hold all messages
+ const [messages, setMessages] = useState(() => { // Array to hold all messages
+ const savedMessages = localStorage.getItem('chatMessages');
+    return savedMessages ? JSON.parse(savedMessages) : [];
+  });
  const [isLoading, setIsLoading] = useState(false); // For loading state
  const [error, setError] = useState(null); // For API errors
+  // useEffect hook to save messages on change 
+  useEffect(() => {
+    // This effect runs whenever the 'messages' array changes
+    localStorage.setItem('chatMessages', JSON.stringify(messages));
+  }, [messages]);
+
 
  const handleSendMessage = async (text) => {
 console.log('1. handleSendMessage called with:', text);
