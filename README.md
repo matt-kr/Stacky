@@ -28,7 +28,7 @@ Stacky Chatbot 🤖
 A tiny, single-page chatbot UI built as a work sample for Return Stack. This web app provides a clean, responsive interface to chat with "Stacky," a cheerful AI software engineering intern. The project focuses on core frontend principles: state management, API integration, and creating a polished user experience.
 
 ✨ Live Demo
-[Insert Your Deployed URL Here] - (e.g., https://stacky-chatbot.vercel.app)
+https://stacky-six.vercel.app/
 
 Features Implemented
 Real-time Chat: Send messages to the Stacky API and receive replies.
