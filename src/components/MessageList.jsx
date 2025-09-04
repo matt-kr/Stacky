@@ -1,15 +1,20 @@
+import { useEffect, useRef } from 'react';
 import Message from './Message';
 
-//FAKE DATA
-const mockMessages = [
-  { id: 1, text: "Hey! What's up?", sender: 'user', timestamp: new Date() },
-  { id: 2, text: "Hey there! Just another day at the startup grind 🚀", sender: 'assistant', timestamp: new Date() },
-];
+export default function MessageList({ messages, isLoading }) {
+  console.log('MessageList component received props:', { messages, isLoading });
 
-export default function MessageList() {
+  const endOfMessagesRef = useRef(null);
+
+  useEffect(() => {
+    endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
   return (
     <div className="message-list">
-      {mockMessages.map(msg => <Message key={msg.id} message={msg} />)}
+      {messages.map(msg => <Message key={msg.id} message={msg} />)}
+      {isLoading && <p className="typing-indicator">Stacky is typing...</p>}
+      <div ref={endOfMessagesRef} />
     </div>
   );
 }
