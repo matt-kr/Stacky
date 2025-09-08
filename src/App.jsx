@@ -14,6 +14,7 @@ function App() {
   });
  const [isLoading, setIsLoading] = useState(false); // For loading state
  const [error, setError] = useState(null); // For API errors
+ const [retryInfo, setRetryInfo] = useState(null); // { attempt, maxRetries, timeoutId }
   // useEffect hook to save messages on change 
   useEffect(() => {
     // This effect runs whenever the 'messages' array changes
@@ -21,53 +22,49 @@ function App() {
   }, [messages]);
 
 
-const handleSendMessage = async (text) => {
-    const userMessage = {
-      id: Date.now(),
-      text,
-      sender: 'user',
-      timestamp: new Date(),
-    };
-    
-    // Create the new messages array immediately to ensure the history is up-to-date
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
+const handleSendMessage = async (text, retryCount = 0) => {
+    const maxRetries = 3;
+    const baseDelay = 1000;
 
-    setIsLoading(true);
-    setError(null);
+    if (retryCount === 0) {
+      const userMessage = {
+        id: Date.now(),
+        text,
+        sender: 'user',
+        timestamp: new Date(),
+      };
+      
+      const updatedMessages = [...messages, userMessage];
+      setMessages(updatedMessages);
+      setIsLoading(true);
+      setError(null);
+    }
 
-    // Build the history string from the most recent messages array
-    const history = updatedMessages.map(msg => {
+    // Build the history string from current messages
+    const currentMessages = retryCount === 0 ? [...messages, { text, sender: 'user' }] : messages;
+    const history = currentMessages.map(msg => {
       return `${msg.sender === 'user' ? 'User' : 'Assistant'}: ${msg.text}`;
     }).join('\n');
     
-    // Construct the new, cleaner prompt with priming
     const promptToSend = `${systemPrompt}
 
 ---
 ${history}
 Assistant:`;
 
-  // --- ONE single try/catch block to handle the API call ---
   try {
-    console.log('5. Attempting to fetch from API_URL:', API_URL);
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      // Use the `promptToSend` variable here, which contains either the
-      // simple text or the full context-aware prompt.
       body: JSON.stringify({ message: promptToSend }),
     });
-    console.log('6. Fetch response received:', response);
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({ error: 'Failed to parse error JSON' }));
-      console.error('6a. Response was NOT ok. Status:', response.status, 'Data:', errData);
       throw new Error(errData.error || `HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('7. Response JSON parsed:', data);
     const assistantMessage = {
       id: Date.now() + 1,
       text: data.reply,
@@ -75,26 +72,47 @@ Assistant:`;
       timestamp: new Date(),
     };
     setMessages(prev => [...prev, assistantMessage]);
-    console.log('8. Updated messages state with assistant message.');
+    setRetryInfo(null);
 
   } catch (err) {
-    console.error('9. An error occurred in the try block:', err);
+    if (retryCount < maxRetries) {
+      const delay = baseDelay * Math.pow(2, retryCount);
+      const timeoutId = setTimeout(() => {
+        handleSendMessage(text, retryCount + 1);
+      }, delay);
+      
+      setRetryInfo({ attempt: retryCount + 1, maxRetries, timeoutId });
+      return;
+    }
+    
     setError(err.message);
+    setRetryInfo(null);
   } finally {
-    // 4. Reset loading state regardless of success or failure
+    if (retryCount >= maxRetries || retryCount === 0) {
+      setIsLoading(false);
+    }
+  }
+};
+
+const cancelRetry = () => {
+  if (retryInfo?.timeoutId) {
+    clearTimeout(retryInfo.timeoutId);
+    setRetryInfo(null);
     setIsLoading(false);
-    console.log('10. In finally block, isLoading set to false.');
   }
 };
 
   return (
    <div className="chatbot-container">
       <h1>Hello, Stacky!</h1>
-      {/* Pass the messages state down to the list */}
        <MessageList messages={messages} isLoading={isLoading} />
-       {/* Identifies when loading is in progress */}
        <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />
-       {/* Display error message if exists */}
+       {retryInfo && (
+         <div className="retry-info">
+           Retrying... (attempt {retryInfo.attempt}/{retryInfo.maxRetries})
+           <button onClick={cancelRetry}>Cancel</button>
+         </div>
+       )}
        {error && <p className="error-message">{error}</p>}
     </div>
   );
