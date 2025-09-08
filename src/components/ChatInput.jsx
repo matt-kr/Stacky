@@ -6,8 +6,10 @@ export default function ChatInput({ onSendMessage, isLoading }) {
   const inputRef = useRef(null);
   
   useEffect(() => {
+    if (!isLoading && inputRef.current) {
     inputRef.current?.focus();
-  }, []);
+    }
+  }, [isLoading]);
 
 const handleSubmit = (e) => {
     e.preventDefault();
@@ -20,6 +22,7 @@ const handleSubmit = (e) => {
   return (
     <form className="chat-input-form" onSubmit={handleSubmit}>
       <input
+        ref={inputRef}
         type="text"
         className="chat-input"
         placeholder="Ask Stacky anything..."
