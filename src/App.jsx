@@ -5,7 +5,7 @@ import MessageList from './components/MessageList';
 
 const API_URL = '/api/reply';
 
-
+const systemPrompt = "You are a helpful AI assistant.";
 
 function App() {
  const [messages, setMessages] = useState(() => { // Array to hold all messages
@@ -22,47 +22,32 @@ function App() {
 
 
 const handleSendMessage = async (text) => {
-  console.log('1. handleSendMessage called with:', text);
-
-  // 1. Add user message to the UI immediately
-  const userMessage = {
-    id: Date.now(),
-    text,
-    sender: 'user',
-    timestamp: new Date(),
-  };
-  console.log('2. User message object created:', userMessage);
-  setMessages(prev => [...prev, userMessage]);
-  console.log('3. Updating messages state with user message.');
-
-  // 2. Set loading state and clear previous errors
-  setIsLoading(true);
-  console.log('4. isLoading set to true.');
-  setError(null);
-
-  // --- Logic to prepare the prompt ---
-  // Start with the basic text as the default prompt.
-  let promptToSend = text;
-
-  // If context is enabled, build a more detailed prompt.
-  // Note: 'useContext' is a React hook. You likely meant a state variable
-  // like 'shouldUseContext' or just 'contextEnabled'.
-  if (useContext) { 
-    const history = messages.map(msg => `${msg.sender === 'user' ? 'You' : 'Stacky'}: ${msg.text}`).join('\n');
+    const userMessage = {
+      id: Date.now(),
+      text,
+      sender: 'user',
+      timestamp: new Date(),
+    };
     
-    promptToSend = `
-[INSTRUCTIONS]
-You are Stacky, a witty AI intern. Use our conversation history below to inform your next reply. Keep your reply concise.
+    // Create the new messages array immediately to ensure the history is up-to-date
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
 
-[CONVERSATION HISTORY]
+    setIsLoading(true);
+    setError(null);
+
+    // Build the history string from the most recent messages array
+    const history = updatedMessages.map(msg => {
+      return `${msg.sender === 'user' ? 'User' : 'Assistant'}: ${msg.text}`;
+    }).join('\n');
+    
+    // Construct the new, cleaner prompt with priming
+    const promptToSend = `${systemPrompt}
+
+---
 ${history}
-You: ${text}
+Assistant:`;
 
-[CURRENT MESSAGE]
-${text}
-    `;
-  }
-  
   // --- ONE single try/catch block to handle the API call ---
   try {
     console.log('5. Attempting to fetch from API_URL:', API_URL);
