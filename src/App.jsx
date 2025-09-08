@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useContext } from 'react'
 import './App.css'
 import ChatInput from './components/ChatInput';
 import MessageList from './components/MessageList';
@@ -21,8 +21,8 @@ function App() {
   }, [messages]);
 
 
- const handleSendMessage = async (text) => {
-console.log('1. handleSendMessage called with:', text);
+const handleSendMessage = async (text) => {
+  console.log('1. handleSendMessage called with:', text);
 
   // 1. Add user message to the UI immediately
   const userMessage = {
@@ -32,7 +32,6 @@ console.log('1. handleSendMessage called with:', text);
     timestamp: new Date(),
   };
   console.log('2. User message object created:', userMessage);
-  
   setMessages(prev => [...prev, userMessage]);
   console.log('3. Updating messages state with user message.');
 
@@ -41,13 +40,38 @@ console.log('1. handleSendMessage called with:', text);
   console.log('4. isLoading set to true.');
   setError(null);
 
-  // 3. Make the API call
+  // --- Logic to prepare the prompt ---
+  // Start with the basic text as the default prompt.
+  let promptToSend = text;
+
+  // If context is enabled, build a more detailed prompt.
+  // Note: 'useContext' is a React hook. You likely meant a state variable
+  // like 'shouldUseContext' or just 'contextEnabled'.
+  if (useContext) { 
+    const history = messages.map(msg => `${msg.sender === 'user' ? 'You' : 'Stacky'}: ${msg.text}`).join('\n');
+    
+    promptToSend = `
+[INSTRUCTIONS]
+You are Stacky, a witty AI intern. Use our conversation history below to inform your next reply. Keep your reply concise.
+
+[CONVERSATION HISTORY]
+${history}
+You: ${text}
+
+[CURRENT MESSAGE]
+${text}
+    `;
+  }
+  
+  // --- ONE single try/catch block to handle the API call ---
   try {
     console.log('5. Attempting to fetch from API_URL:', API_URL);
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text }),
+      // Use the `promptToSend` variable here, which contains either the
+      // simple text or the full context-aware prompt.
+      body: JSON.stringify({ message: promptToSend }),
     });
     console.log('6. Fetch response received:', response);
 
@@ -66,17 +90,16 @@ console.log('1. handleSendMessage called with:', text);
       timestamp: new Date(),
     };
     setMessages(prev => [...prev, assistantMessage]);
-      console.log('8. Updated messages state with assistant message.');
+    console.log('8. Updated messages state with assistant message.');
 
   } catch (err) {
     console.error('9. An error occurred in the try block:', err);
     setError(err.message);
   } finally {
-    
-    // 4. Reset loading state
+    // 4. Reset loading state regardless of success or failure
     setIsLoading(false);
     console.log('10. In finally block, isLoading set to false.');
-  }  
+  }
 };
 
   return (
