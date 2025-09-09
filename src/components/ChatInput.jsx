@@ -31,7 +31,7 @@ const handleSubmit = (e) => {
         disabled={isLoading} //disable input while loading
       />
       <button type="submit" className="send-button" disabled={isLoading}>
-        {isLoading ? '...' : 'Send'}
+        {isLoading ? '...' : ''}
       </button>
     </form>
   );

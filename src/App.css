@@ -182,8 +182,8 @@ body {
 /* --- 7. Desktop Enhancements --- */
 @media (min-width: 768px) {
   .chatbot-container {
-    max-width: 700px;
-    height: 85vh;
+    max-width: 69%;
+    height: auto;
     max-height: 800px;
     margin: 2rem auto;
     border-radius: 1rem;
