@@ -13,6 +13,9 @@ export default function ChatInput({
   const [text, setText] = useState('');
   const inputRef = useRef(null);
   
+  // Check if we're on mobile
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
   useEffect(() => {
     if (!isLoading && inputRef.current) {
     inputRef.current?.focus();
@@ -50,8 +53,12 @@ const handleSubmit = (e) => {
         </button>
         {showPhotoMenu && (
           <div className={`photo-menu ${isPhotoMenuClosing ? 'closing' : ''}`}>
-            <button type="button" onClick={onCameraCapture}>📷 Camera</button>
-            <button type="button" onClick={onPhotoUpload}>↑ Upload</button>
+            <button type="button" onClick={onCameraCapture}>
+              📷 {isMobile ? 'Camera' : 'Camera'}
+            </button>
+            {!isMobile && (
+              <button type="button" onClick={onPhotoUpload}>↑ Upload</button>
+            )}
           </div>
         )}
       </div>

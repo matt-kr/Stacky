@@ -86,14 +86,32 @@ function App() {
  };
 
  const handleCameraCapture = async () => {
+   // Check if we're on mobile - if so, use native file input instead of custom camera
+   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+   
+   if (isMobile) {
+     // On mobile, use native camera via file input
+     const fileInput = document.createElement('input');
+     fileInput.type = 'file';
+     fileInput.accept = 'image/*';
+     fileInput.capture = 'environment'; // Prefer back camera
+     fileInput.onchange = (event) => {
+       const file = event.target.files[0];
+       if (file && file.type.startsWith('image/')) {
+         const imageUrl = URL.createObjectURL(file);
+         setCameraPreview({ imageUrl, file });
+       }
+     };
+     fileInput.click();
+     closePhotoMenu();
+     return;
+   }
+
+   // Desktop: use our custom camera implementation
    try {
-     // Check if we're on mobile or desktop
-     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-     
-     // Camera constraints - use back camera on mobile, default on desktop
      const constraints = {
        video: {
-         facingMode: isMobile ? 'environment' : 'user', // 'environment' = back camera, 'user' = front camera
+         facingMode: 'user', // Front camera/webcam on desktop
          width: { ideal: 1920 },
          height: { ideal: 1080 }
        }
@@ -205,15 +223,31 @@ function App() {
      URL.revokeObjectURL(cameraPreview.imageUrl); // Clean up memory
      setCameraPreview(null);
      
-     // Restart camera for a new photo
+     // Check if we're on mobile
+     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+     
+     if (isMobile) {
+       // On mobile, use native camera via file input
+       const fileInput = document.createElement('input');
+       fileInput.type = 'file';
+       fileInput.accept = 'image/*';
+       fileInput.capture = 'environment'; // Prefer back camera
+       fileInput.onchange = (event) => {
+         const file = event.target.files[0];
+         if (file && file.type.startsWith('image/')) {
+           const imageUrl = URL.createObjectURL(file);
+           setCameraPreview({ imageUrl, file });
+         }
+       };
+       fileInput.click();
+       return;
+     }
+     
+     // Desktop: restart custom camera for a new photo
      try {
-       // Check if we're on mobile or desktop
-       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-       
-       // Camera constraints - use back camera on mobile, default on desktop
        const constraints = {
          video: {
-           facingMode: isMobile ? 'environment' : 'user', // 'environment' = back camera, 'user' = front camera
+           facingMode: 'user', // Front camera/webcam on desktop
            width: { ideal: 1920 },
            height: { ideal: 1080 }
          }
