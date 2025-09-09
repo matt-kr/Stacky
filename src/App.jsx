@@ -11,7 +11,8 @@ function App() {
  const [showGreeting, setShowGreeting] = useState(false);
  const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
  const [isHamburgerMenuClosing, setIsHamburgerMenuClosing] = useState(false);
- const [isDarkMode, setIsDarkMode] = useState(false);
+ const [showPhotoMenu, setShowPhotoMenu] = useState(false);
+ const [isPhotoMenuClosing, setIsPhotoMenuClosing] = useState(false);
  const [soundEnabled, setSoundEnabled] = useState(true);
  
  const handleLogoClick = () => {
@@ -42,6 +43,41 @@ function App() {
    }
  };
 
+ const handlePhotoClick = () => {
+   if (showPhotoMenu) {
+     // Start closing animation
+     setIsPhotoMenuClosing(true);
+     setTimeout(() => {
+       setShowPhotoMenu(false);
+       setIsPhotoMenuClosing(false);
+     }, 200); // Match the slideUpOut animation duration
+   } else {
+     setShowPhotoMenu(true);
+   }
+ };
+
+ const closePhotoMenu = () => {
+   if (showPhotoMenu) {
+     setIsPhotoMenuClosing(true);
+     setTimeout(() => {
+       setShowPhotoMenu(false);
+       setIsPhotoMenuClosing(false);
+     }, 200);
+   }
+ };
+
+ const handlePhotoUpload = () => {
+   // TODO: Implement photo upload functionality
+   console.log('Photo upload clicked');
+   closePhotoMenu();
+ };
+
+ const handleCameraCapture = () => {
+   // TODO: Implement camera capture functionality
+   console.log('Camera capture clicked');
+   closePhotoMenu();
+ };
+
  const handleNewChat = () => {
    setMessages([]);
    closeHamburgerMenu();
@@ -49,11 +85,6 @@ function App() {
 
  const handleGoToWebsite = () => {
    window.open('https://returnstack.ai/', '_blank');
-   closeHamburgerMenu();
- };
-
- const toggleDarkMode = () => {
-   setIsDarkMode(!isDarkMode);
    closeHamburgerMenu();
  };
 
@@ -74,17 +105,20 @@ function App() {
     localStorage.setItem('chatMessages', JSON.stringify(messages));
   }, [messages]);
 
-  // Close hamburger menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (showHamburgerMenu && !event.target.closest('.hamburger-menu-container')) {
         closeHamburgerMenu();
       }
+      if (showPhotoMenu && !event.target.closest('.photo-menu-container')) {
+        closePhotoMenu();
+      }
     };
 
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, [showHamburgerMenu]);
+  }, [showHamburgerMenu, showPhotoMenu]);
 
 
 const handleSendMessage = async (text, retryCount = 0) => {
@@ -181,9 +215,6 @@ const cancelRetry = () => {
               <button onClick={handleNewChat}>New Chat</button>
               <button onClick={handleGoToWebsite}>Visit ReturnStack.ai</button>
               <hr />
-              <button onClick={toggleDarkMode}>
-                {isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
-              </button>
               <button onClick={toggleSound}>
                 {soundEnabled ? '🔇 Sound Off' : '🔊 Sound On'}
               </button>
@@ -199,7 +230,15 @@ const cancelRetry = () => {
         </div>
       </header>
        <MessageList messages={messages} isLoading={isLoading} />
-       <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />
+       <ChatInput 
+         onSendMessage={handleSendMessage} 
+         isLoading={isLoading}
+         showPhotoMenu={showPhotoMenu}
+         isPhotoMenuClosing={isPhotoMenuClosing}
+         onPhotoClick={handlePhotoClick}
+         onPhotoUpload={handlePhotoUpload}
+         onCameraCapture={handleCameraCapture}
+       />
        {retryInfo && (
          <div className="retry-info">
            Retrying... (attempt {retryInfo.attempt}/{retryInfo.maxRetries})

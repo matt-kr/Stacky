@@ -1,7 +1,15 @@
 import { useState, useRef, useEffect} from 'react';
 
 
-export default function ChatInput({ onSendMessage, isLoading }) {
+export default function ChatInput({ 
+  onSendMessage, 
+  isLoading, 
+  showPhotoMenu, 
+  isPhotoMenuClosing, 
+  onPhotoClick, 
+  onPhotoUpload, 
+  onCameraCapture 
+}) {
   const [text, setText] = useState('');
   const inputRef = useRef(null);
   
@@ -29,6 +37,22 @@ const handleSubmit = (e) => {
 
   return (
     <form className="chat-input-form" onSubmit={handleSubmit}>
+      <div className="photo-menu-container" style={{position: 'relative'}}>
+        <button 
+          type="button"
+          className="photo-button" 
+          onClick={onPhotoClick}
+          disabled={isLoading}
+        >
+          +
+        </button>
+        {showPhotoMenu && (
+          <div className={`photo-menu ${isPhotoMenuClosing ? 'closing' : ''}`}>
+            <button type="button" onClick={onPhotoUpload}>📷 Camera</button>
+            <button type="button" onClick={onCameraCapture}>🖼️ Photo</button>
+          </div>
+        )}
+      </div>
       <textarea
         ref={inputRef}
         className="chat-input"

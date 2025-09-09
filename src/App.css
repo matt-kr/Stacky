@@ -371,6 +371,82 @@ body {
   animation: slideUpIn 0.6s ease-out 0.8s both;
 }
 
+/* Photo Button */
+.photo-button {
+  background: none;
+  border: 1px solid #D1D5DB;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 300;
+  color: var(--text-light);
+  transition: opacity 0.15s ease, border-color 0.2s ease;
+  outline: none;
+  padding: 0;
+  line-height: 0.8;
+}
+
+.photo-button:focus {
+  outline: none;
+}
+
+.photo-button:active {
+  opacity: 0.6;
+}
+
+.photo-button:hover {
+  border-color: var(--brand-green);
+}
+
+.photo-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Photo Menu */
+.photo-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  background: #fff;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 160px;
+  animation: slideDownIn 0.3s ease-out;
+  transform-origin: bottom left;
+}
+
+.photo-menu.closing {
+  animation: slideUpOut 0.2s ease-in forwards;
+}
+
+.photo-menu button {
+  background: none;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #013419;
+  transition: background-color 0.2s;
+  text-align: left;
+}
+
+.photo-menu button:hover {
+  background-color: var(--brand-green-light);
+}
+
 .chat-input {
   flex-grow: 1;
   border: 1px solid #D1D5DB;
