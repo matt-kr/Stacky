@@ -55,7 +55,7 @@ function App() {
      const fileInput = document.createElement('input');
      fileInput.type = 'file';
      fileInput.accept = 'image/*';
-     fileInput.capture = 'environment'; // This gives options for camera, but doesn't force it
+     // Remove capture attribute to show all options (camera, photo library, etc.)
      fileInput.onchange = (event) => {
        const file = event.target.files[0];
        if (file && file.type.startsWith('image/')) {
@@ -115,7 +115,7 @@ function App() {
      const fileInput = document.createElement('input');
      fileInput.type = 'file';
      fileInput.accept = 'image/*';
-     fileInput.capture = 'environment'; // Prefer back camera
+     // Remove capture attribute to show all options
      fileInput.onchange = (event) => {
        const file = event.target.files[0];
        if (file && file.type.startsWith('image/')) {
@@ -252,7 +252,7 @@ function App() {
        const fileInput = document.createElement('input');
        fileInput.type = 'file';
        fileInput.accept = 'image/*';
-       fileInput.capture = 'environment'; // Prefer back camera
+       // Remove capture attribute to show all options
        fileInput.onchange = (event) => {
          const file = event.target.files[0];
          if (file && file.type.startsWith('image/')) {
