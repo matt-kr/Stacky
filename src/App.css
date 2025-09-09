@@ -44,7 +44,7 @@ body {
   display: flex; /* Use flexbox to align items */
   align-items: center; /* Vertically center the items */
   justify-content: center; /* Horizontally center the group */
-  gap: 0.75rem; /* Space between the logo and the text */
+  gap: 0.3rem; /* Space between the logo and the text */
   flex-shrink: 0; /* Prevents the header from shrinking */
   position: sticky;
   top: 0;
@@ -55,7 +55,7 @@ body {
 
 .chat-header h1 {
   margin: 0;
-  font-size: 3.25rem;
+  font-size: 2.25rem;
   color: var(--text-dark);
   font-weight: 600;
   color:#013419
@@ -213,6 +213,9 @@ body {
 
 /* --- 7. Desktop Enhancements --- */
 @media (min-width: 768px) {
+  .chat-header h1 {
+    font-size: 3.25rem; /* larger size for desktop */
+  }
   .chatbot-container {
     max-width: 69%;
     height: auto;
