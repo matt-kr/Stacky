@@ -41,6 +41,18 @@ function App() {
     localStorage.setItem('chatMessages', JSON.stringify(messages));
   }, [messages]);
 
+  // Close header menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showHeaderMenu && !event.target.closest('.chat-header h1')) {
+        setShowHeaderMenu(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showHeaderMenu]);
+
 
 const handleSendMessage = async (text, retryCount = 0) => {
     const maxRetries = 3;
