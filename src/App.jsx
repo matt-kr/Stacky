@@ -10,6 +10,7 @@ const systemPrompt = "You are a helpful AI assistant.";
 function App() {
  const [showGreeting, setShowGreeting] = useState(false);
  const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
+ const [isHamburgerMenuClosing, setIsHamburgerMenuClosing] = useState(false);
  const [isDarkMode, setIsDarkMode] = useState(false);
  const [soundEnabled, setSoundEnabled] = useState(true);
  
@@ -19,27 +20,46 @@ function App() {
  };
 
  const handleHamburgerClick = () => {
-   setShowHamburgerMenu(!showHamburgerMenu);
+   if (showHamburgerMenu) {
+     // Start closing animation
+     setIsHamburgerMenuClosing(true);
+     setTimeout(() => {
+       setShowHamburgerMenu(false);
+       setIsHamburgerMenuClosing(false);
+     }, 200); // Match the slideUpOut animation duration
+   } else {
+     setShowHamburgerMenu(true);
+   }
+ };
+
+ const closeHamburgerMenu = () => {
+   if (showHamburgerMenu) {
+     setIsHamburgerMenuClosing(true);
+     setTimeout(() => {
+       setShowHamburgerMenu(false);
+       setIsHamburgerMenuClosing(false);
+     }, 200);
+   }
  };
 
  const handleNewChat = () => {
    setMessages([]);
-   setShowHamburgerMenu(false);
+   closeHamburgerMenu();
  };
 
  const handleGoToWebsite = () => {
    window.open('https://returnstack.ai/', '_blank');
-   setShowHamburgerMenu(false);
+   closeHamburgerMenu();
  };
 
  const toggleDarkMode = () => {
    setIsDarkMode(!isDarkMode);
-   setShowHamburgerMenu(false);
+   closeHamburgerMenu();
  };
 
  const toggleSound = () => {
    setSoundEnabled(!soundEnabled);
-   setShowHamburgerMenu(false);
+   closeHamburgerMenu();
  };
  const [messages, setMessages] = useState(() => { // Array to hold all messages
  const savedMessages = localStorage.getItem('chatMessages');
@@ -58,7 +78,7 @@ function App() {
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (showHamburgerMenu && !event.target.closest('.hamburger-menu-container')) {
-        setShowHamburgerMenu(false);
+        closeHamburgerMenu();
       }
     };
 
@@ -151,13 +171,13 @@ const cancelRetry = () => {
    <div className="chatbot-container">
       <header className="chat-header" style={{position: 'sticky', top: 0, zIndex: 10, background: 'var(--container-bg)'}}>
         <div className="hamburger-menu-container" style={{position: 'relative'}}>
-          <button className="hamburger-button" onClick={handleHamburgerClick}>
+          <button className={`hamburger-button ${showHamburgerMenu ? 'open' : ''}`} onClick={handleHamburgerClick}>
             <span></span>
             <span></span>
             <span></span>
           </button>
           {showHamburgerMenu && (
-            <div className="hamburger-menu">
+            <div className={`hamburger-menu ${isHamburgerMenuClosing ? 'closing' : ''}`}>
               <button onClick={handleNewChat}>New Chat</button>
               <button onClick={handleGoToWebsite}>Visit ReturnStack.ai</button>
               <hr />
