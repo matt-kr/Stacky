@@ -1,5 +1,5 @@
 export default function Message({ message }) {
-  // The 'message' prop will have { text, sender, timestamp }
+  // The 'message' prop will have { text, sender, timestamp, image? }
   const isUser = message.sender === 'user';
   const senderName = isUser ? 'You' : (
     <span style={{display: 'inline-flex', alignItems: 'center', gap: '0.1em'}}>
@@ -16,6 +16,17 @@ export default function Message({ message }) {
       <div className="message-content">
         <p className="sender-name">{senderName}</p>
         <div className={`message-bubble ${bubbleClass}`}>
+          {message.image && (
+            <div className="message-image">
+              <img src={message.image} alt="Shared image" style={{
+                maxWidth: '300px',
+                maxHeight: '300px',
+                borderRadius: '8px',
+                marginBottom: '0.5rem',
+                display: 'block'
+              }} />
+            </div>
+          )}
           <p className="message-text">{message.text}</p>
           <span className="message-timestamp">
             {new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}

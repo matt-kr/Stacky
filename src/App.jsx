@@ -15,6 +15,8 @@ function App() {
  const [isPhotoMenuClosing, setIsPhotoMenuClosing] = useState(false);
  const [soundEnabled, setSoundEnabled] = useState(true);
  const [cameraPreview, setCameraPreview] = useState(null); // { imageUrl, file }
+ const [showCameraView, setShowCameraView] = useState(false); // Live camera view
+ const [cameraStream, setCameraStream] = useState(null); // Camera stream
  
  const handleLogoClick = () => {
    setShowGreeting(true);
@@ -68,8 +70,18 @@ function App() {
  };
 
  const handlePhotoUpload = () => {
-   // TODO: Implement photo upload functionality
-   console.log('Photo upload clicked');
+   // Create a hidden file input to trigger file selection
+   const fileInput = document.createElement('input');
+   fileInput.type = 'file';
+   fileInput.accept = 'image/*';
+   fileInput.onchange = (event) => {
+     const file = event.target.files[0];
+     if (file && file.type.startsWith('image/')) {
+       const imageUrl = URL.createObjectURL(file);
+       setCameraPreview({ imageUrl, file });
+     }
+   };
+   fileInput.click();
    closePhotoMenu();
  };
 
@@ -89,17 +101,26 @@ function App() {
 
      // Get camera stream
      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+     setCameraStream(stream);
+     setShowCameraView(true);
      
-     // Create video element to capture frame
-     const video = document.createElement('video');
-     video.srcObject = stream;
-     video.play();
-     
-     // Wait for video to load
-     await new Promise((resolve) => {
-       video.onloadedmetadata = resolve;
-     });
-     
+   } catch (error) {
+     console.error('Camera access failed:', error);
+     alert('Camera access failed. Please check permissions and try again.');
+   }
+   closePhotoMenu();
+ };
+
+ const takePicture = () => {
+   if (!cameraStream) return;
+   
+   // Create video element to capture frame
+   const video = document.createElement('video');
+   video.srcObject = cameraStream;
+   video.play();
+   
+   // Wait for video to load then capture
+   video.onloadedmetadata = () => {
      // Create canvas to capture frame
      const canvas = document.createElement('canvas');
      canvas.width = video.videoWidth;
@@ -109,31 +130,73 @@ function App() {
      // Draw current frame to canvas
      ctx.drawImage(video, 0, 0);
      
-     // Stop the camera stream
-     stream.getTracks().forEach(track => track.stop());
-     
      // Convert canvas to blob and show preview
      canvas.toBlob((blob) => {
        if (blob) {
          const file = new File([blob], `camera-capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
          const imageUrl = URL.createObjectURL(blob);
          setCameraPreview({ imageUrl, file });
+         closeCameraView();
        }
      }, 'image/jpeg', 0.9);
-     
-   } catch (error) {
-     console.error('Camera capture failed:', error);
-     alert('Camera access failed. Please check permissions and try again.');
-   }
-   closePhotoMenu();
+   };
  };
 
- const handleConfirmPhoto = () => {
+ const closeCameraView = () => {
+   if (cameraStream) {
+     cameraStream.getTracks().forEach(track => track.stop());
+     setCameraStream(null);
+   }
+   setShowCameraView(false);
+ };
+
+ const handleConfirmPhoto = async () => {
    if (cameraPreview) {
-     console.log('Photo confirmed:', cameraPreview.file);
-     // TODO: Send the image with a message or process it
-     URL.revokeObjectURL(cameraPreview.imageUrl); // Clean up memory
+     // Create a new message with the image
+     const newMessage = {
+       id: Date.now(),
+       text: 'I\'ve shared an image with you.',
+       sender: 'user',
+       image: cameraPreview.imageUrl,
+       timestamp: new Date()
+     };
+     
+     const updatedMessages = [...messages, newMessage];
+     setMessages(updatedMessages);
+     
+     // Clean up the preview
      setCameraPreview(null);
+     
+     // Send the message with image to the API
+     setIsLoading(true);
+     setError(null);
+     
+     try {
+       // For now, we'll just send a text message about the image
+       // In a real implementation, you'd upload the image to a server and send the URL
+       const apiMessages = [
+         ...updatedMessages.slice(0, -1).map(msg => ({ role: msg.sender, content: msg.text })),
+         { role: 'user', content: 'I\'ve shared an image with you. [Image uploaded but not processed in this demo]' }
+       ];
+       
+       const response = await sendMessage(apiMessages);
+       const assistantMessage = {
+         id: Date.now() + 1,
+         text: response,
+         sender: 'assistant',
+         timestamp: new Date()
+       };
+       
+       const finalMessages = [...updatedMessages, assistantMessage];
+       setMessages(finalMessages);
+       localStorage.setItem('chatMessages', JSON.stringify(finalMessages));
+       
+     } catch (error) {
+       console.error('Error sending message:', error);
+       setError('Failed to send message. Please try again.');
+     } finally {
+       setIsLoading(false);
+     }
    }
  };
 
@@ -312,6 +375,34 @@ const cancelRetry = () => {
          </div>
        )}
        {error && <p className="error-message">{error}</p>}
+       
+       {/* Live Camera View */}
+       {showCameraView && (
+         <div className="camera-view-overlay">
+           <div className="camera-view-container">
+             <video 
+               ref={(video) => {
+                 if (video && cameraStream) {
+                   video.srcObject = cameraStream;
+                   video.play();
+                 }
+               }}
+               className="camera-video"
+               autoPlay
+               playsInline
+               muted
+             />
+             <div className="camera-controls">
+               <button className="camera-close-btn" onClick={closeCameraView}>
+                 ✕ Close
+               </button>
+               <button className="camera-capture-btn" onClick={takePicture}>
+                 📸 Capture
+               </button>
+             </div>
+           </div>
+         </div>
+       )}
        
        {/* Camera Preview Modal */}
        {cameraPreview && (
