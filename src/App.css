@@ -193,7 +193,8 @@ body {
   content: '➤';
   font-size: 1.25rem;
   color: var(--text-dark);
-  transform: rotate(-30deg) translateX(1px);
+  transform: rotate(-30deg);
+  
 }
 
 
