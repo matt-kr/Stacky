@@ -14,6 +14,7 @@ function App() {
  const [showPhotoMenu, setShowPhotoMenu] = useState(false);
  const [isPhotoMenuClosing, setIsPhotoMenuClosing] = useState(false);
  const [soundEnabled, setSoundEnabled] = useState(true);
+ const [cameraPreview, setCameraPreview] = useState(null); // { imageUrl, file }
  
  const handleLogoClick = () => {
    setShowGreeting(true);
@@ -72,10 +73,75 @@ function App() {
    closePhotoMenu();
  };
 
- const handleCameraCapture = () => {
-   // TODO: Implement camera capture functionality
-   console.log('Camera capture clicked');
+ const handleCameraCapture = async () => {
+   try {
+     // Check if we're on mobile or desktop
+     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+     
+     // Camera constraints - use back camera on mobile, default on desktop
+     const constraints = {
+       video: {
+         facingMode: isMobile ? 'environment' : 'user', // 'environment' = back camera, 'user' = front camera
+         width: { ideal: 1920 },
+         height: { ideal: 1080 }
+       }
+     };
+
+     // Get camera stream
+     const stream = await navigator.mediaDevices.getUserMedia(constraints);
+     
+     // Create video element to capture frame
+     const video = document.createElement('video');
+     video.srcObject = stream;
+     video.play();
+     
+     // Wait for video to load
+     await new Promise((resolve) => {
+       video.onloadedmetadata = resolve;
+     });
+     
+     // Create canvas to capture frame
+     const canvas = document.createElement('canvas');
+     canvas.width = video.videoWidth;
+     canvas.height = video.videoHeight;
+     const ctx = canvas.getContext('2d');
+     
+     // Draw current frame to canvas
+     ctx.drawImage(video, 0, 0);
+     
+     // Stop the camera stream
+     stream.getTracks().forEach(track => track.stop());
+     
+     // Convert canvas to blob and show preview
+     canvas.toBlob((blob) => {
+       if (blob) {
+         const file = new File([blob], `camera-capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
+         const imageUrl = URL.createObjectURL(blob);
+         setCameraPreview({ imageUrl, file });
+       }
+     }, 'image/jpeg', 0.9);
+     
+   } catch (error) {
+     console.error('Camera capture failed:', error);
+     alert('Camera access failed. Please check permissions and try again.');
+   }
    closePhotoMenu();
+ };
+
+ const handleConfirmPhoto = () => {
+   if (cameraPreview) {
+     console.log('Photo confirmed:', cameraPreview.file);
+     // TODO: Send the image with a message or process it
+     URL.revokeObjectURL(cameraPreview.imageUrl); // Clean up memory
+     setCameraPreview(null);
+   }
+ };
+
+ const handleRetakePhoto = () => {
+   if (cameraPreview) {
+     URL.revokeObjectURL(cameraPreview.imageUrl); // Clean up memory
+     setCameraPreview(null);
+   }
  };
 
  const handleNewChat = () => {
@@ -246,6 +312,28 @@ const cancelRetry = () => {
          </div>
        )}
        {error && <p className="error-message">{error}</p>}
+       
+       {/* Camera Preview Modal */}
+       {cameraPreview && (
+         <div className="camera-preview-overlay">
+           <div className="camera-preview-modal">
+             <div className="camera-preview-header">
+               <h3>Photo Preview</h3>
+             </div>
+             <div className="camera-preview-image">
+               <img src={cameraPreview.imageUrl} alt="Camera capture preview" />
+             </div>
+             <div className="camera-preview-actions">
+               <button className="retake-btn" onClick={handleRetakePhoto}>
+                 🔄 Retake
+               </button>
+               <button className="confirm-btn" onClick={handleConfirmPhoto}>
+                 ✓ Use Photo
+               </button>
+             </div>
+           </div>
+         </div>
+       )}
     </div>
   );
 }
