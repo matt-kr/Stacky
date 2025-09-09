@@ -46,6 +46,10 @@ body {
   justify-content: center; /* Horizontally center the group */
   gap: 0.75rem; /* Space between the logo and the text */
   flex-shrink: 0; /* Prevents the header from shrinking */
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--container-bg);
 
 }
 

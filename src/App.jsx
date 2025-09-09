@@ -106,7 +106,7 @@ const cancelRetry = () => {
    <div className="chatbot-container">
       <header className="chat-header">
 
-        <h1>ReturnStacky!</h1>
+        <h1>ReturnStacky</h1>
                 <img src="/Stacky.png" alt="Stacky Logo" className="header-logo" />
       </header>
        <MessageList messages={messages} isLoading={isLoading} />
