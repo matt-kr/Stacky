@@ -54,11 +54,11 @@ const handleSubmit = (e) => {
         {showPhotoMenu && (
           <div className={`photo-menu ${isPhotoMenuClosing ? 'closing' : ''}`}>
             <button type="button" onClick={onCameraCapture}>
-              📷 {isMobile ? 'Camera' : 'Camera'}
+              📷 Camera
             </button>
-            {!isMobile && (
-              <button type="button" onClick={onPhotoUpload}>↑ Upload</button>
-            )}
+            <button type="button" onClick={onPhotoUpload}>
+              {isMobile ? '🖼️ Gallery' : '↑ Upload'}
+            </button>
           </div>
         )}
       </div>

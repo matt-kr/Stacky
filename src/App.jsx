@@ -52,65 +52,23 @@ function App() {
    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
    const isMobile = isAndroid || isIOS;
    
-   if (isMobile) {
-     // On mobile, directly use native camera/file picker and send immediately
+   if (isIOS) {
+     // iOS: directly use native file picker (works perfectly)
      const fileInput = document.createElement('input');
      fileInput.type = 'file';
      fileInput.accept = 'image/*';
      
-     // Don't use capture attribute at all - let Android show its default options
-     
      fileInput.onchange = async (event) => {
        const file = event.target.files[0];
        if (file && file.type.startsWith('image/')) {
-         // Create message and send immediately (skip our custom preview)
-         const imageUrl = URL.createObjectURL(file);
-         const newMessage = {
-           id: Date.now(),
-           text: 'I\'ve shared an image with you.',
-           sender: 'user',
-           image: imageUrl,
-           timestamp: new Date()
-         };
-         
-         const updatedMessages = [...messages, newMessage];
-         setMessages(updatedMessages);
-         
-         // Send to API
-         setIsLoading(true);
-         setError(null);
-         
-         try {
-           const apiMessages = [
-             ...updatedMessages.slice(0, -1).map(msg => ({ role: msg.sender, content: msg.text })),
-             { role: 'user', content: 'I\'ve shared an image with you. [Image uploaded but not processed in this demo]' }
-           ];
-           
-           const response = await sendMessage(apiMessages);
-           const assistantMessage = {
-             id: Date.now() + 1,
-             text: response,
-             sender: 'assistant',
-             timestamp: new Date()
-           };
-           
-           const finalMessages = [...updatedMessages, assistantMessage];
-           setMessages(finalMessages);
-           localStorage.setItem('chatMessages', JSON.stringify(finalMessages));
-           
-         } catch (error) {
-           console.error('Error sending message:', error);
-           setError('Failed to send message. Please try again.');
-         } finally {
-           setIsLoading(false);
-         }
+         await sendImageMessage(file);
        }
      };
      fileInput.click();
      return;
    }
 
-   // Desktop: show photo menu
+   // Android or Desktop: show photo menu
    if (showPhotoMenu) {
      // Start closing animation
      setIsPhotoMenuClosing(true);
@@ -120,6 +78,50 @@ function App() {
      }, 200); // Match the slideUpOut animation duration
    } else {
      setShowPhotoMenu(true);
+   }
+ };
+
+ const sendImageMessage = async (file) => {
+   // Create message and send immediately
+   const imageUrl = URL.createObjectURL(file);
+   const newMessage = {
+     id: Date.now(),
+     text: 'I\'ve shared an image with you.',
+     sender: 'user',
+     image: imageUrl,
+     timestamp: new Date()
+   };
+   
+   const updatedMessages = [...messages, newMessage];
+   setMessages(updatedMessages);
+   
+   // Send to API
+   setIsLoading(true);
+   setError(null);
+   
+   try {
+     const apiMessages = [
+       ...updatedMessages.slice(0, -1).map(msg => ({ role: msg.sender, content: msg.text })),
+       { role: 'user', content: 'I\'ve shared an image with you. [Image uploaded but not processed in this demo]' }
+     ];
+     
+     const response = await sendMessage(apiMessages);
+     const assistantMessage = {
+       id: Date.now() + 1,
+       text: response,
+       sender: 'assistant',
+       timestamp: new Date()
+     };
+     
+     const finalMessages = [...updatedMessages, assistantMessage];
+     setMessages(finalMessages);
+     localStorage.setItem('chatMessages', JSON.stringify(finalMessages));
+     
+   } catch (error) {
+     console.error('Error sending message:', error);
+     setError('Failed to send message. Please try again.');
+   } finally {
+     setIsLoading(false);
    }
  };
 
@@ -133,22 +135,6 @@ function App() {
    }
  };
 
- const handlePhotoUpload = () => {
-   // Create a hidden file input to trigger file selection
-   const fileInput = document.createElement('input');
-   fileInput.type = 'file';
-   fileInput.accept = 'image/*';
-   fileInput.onchange = (event) => {
-     const file = event.target.files[0];
-     if (file && file.type.startsWith('image/')) {
-       const imageUrl = URL.createObjectURL(file);
-       setCameraPreview({ imageUrl, file });
-     }
-   };
-   fileInput.click();
-   closePhotoMenu();
- };
-
  const handleCameraCapture = async () => {
    // Check device type
    const isAndroid = /Android/i.test(navigator.userAgent);
@@ -156,21 +142,16 @@ function App() {
    const isMobile = isAndroid || isIOS;
    
    if (isMobile) {
-     // On mobile, use native camera via file input
+     // On mobile, use native camera via file input with capture
      const fileInput = document.createElement('input');
      fileInput.type = 'file';
      fileInput.accept = 'image/*';
+     fileInput.capture = 'environment'; // Force camera
      
-     // Android-specific: add capture attribute
-     if (isAndroid) {
-       fileInput.capture = 'camera';
-     }
-     
-     fileInput.onchange = (event) => {
+     fileInput.onchange = async (event) => {
        const file = event.target.files[0];
        if (file && file.type.startsWith('image/')) {
-         const imageUrl = URL.createObjectURL(file);
-         setCameraPreview({ imageUrl, file });
+         await sendImageMessage(file);
        }
      };
      fileInput.click();
@@ -200,7 +181,30 @@ function App() {
    closePhotoMenu();
  };
 
- const takePicture = () => {
+ const handlePhotoUpload = async () => {
+   // Create a hidden file input to trigger file selection
+   const fileInput = document.createElement('input');
+   fileInput.type = 'file';
+   fileInput.accept = 'image/*';
+   // No capture attribute - this will prefer gallery/file picker
+   
+   fileInput.onchange = async (event) => {
+     const file = event.target.files[0];
+     if (file && file.type.startsWith('image/')) {
+       // Check if we're on mobile - if so, send directly
+       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+       if (isMobile) {
+         await sendImageMessage(file);
+       } else {
+         // Desktop: show preview
+         const imageUrl = URL.createObjectURL(file);
+         setCameraPreview({ imageUrl, file });
+       }
+     }
+   };
+   fileInput.click();
+   closePhotoMenu();
+ }; const takePicture = () => {
    if (!cameraStream) return;
    
    // Create video element to capture frame
