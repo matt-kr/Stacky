@@ -19,16 +19,26 @@ const handleSubmit = (e) => {
     }
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+    // Shift+Enter will naturally create a new line
+  };
+
   return (
     <form className="chat-input-form" onSubmit={handleSubmit}>
-      <input
+      <textarea
         ref={inputRef}
-        type="text"
         className="chat-input"
         placeholder="Ask Stacky anything..."
         value={text}
         onChange={(e) => setText(e.target.value)}
-        disabled={isLoading} //disable input while loading
+        onKeyDown={handleKeyDown}
+        disabled={isLoading}
+        rows={1}
+        style={{ resize: 'none', overflow: 'hidden' }}
       />
       <button type="submit" className="send-button" disabled={isLoading}>
         {isLoading ? <div className="loading-spinner"></div> : null}
