@@ -144,7 +144,7 @@ body {
 
 /* --- 2.5 Chat Header --- */
 .chat-header {
-  padding: 1rem;
+  padding: 0rem;
   border-bottom: 1px solid var(--bubble-user);
   display: flex; /* Use flexbox to align items */
   align-items: center; /* Vertically center the items */
@@ -164,7 +164,7 @@ body {
   font-size: 2.25rem;
   color: var(--text-dark);
   font-weight: 600;
-  color:#013419
+  color:#044421
 }
 .header-logo {
   height: 5.2em; /* Adjust size as needed, e.g., 32px or 40px */
