@@ -465,6 +465,16 @@ body {
   max-height: 120px;
   overflow-y: auto;
   background-color: #F8F9FA;
+  color: #1E293B !important; /* Explicit dark text color for Android compatibility */
+  color: var(--text-dark) !important; /* Use CSS variable where supported */
+  -webkit-text-fill-color: #1E293B !important; /* Android WebKit fix */
+  opacity: 1 !important; /* Prevent Android from making text transparent */
+  -webkit-opacity: 1 !important; /* Android WebKit specific */
+}
+
+.chat-input::placeholder {
+  color: #9CA3AF !important; /* Ensure placeholder is visible */
+  opacity: 1 !important;
 }
 
 .chat-input:focus {

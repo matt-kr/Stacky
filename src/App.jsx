@@ -47,15 +47,23 @@ function App() {
  };
 
  const handlePhotoClick = () => {
-   // Check if we're on mobile - if so, directly open native camera/file picker
-   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+   // Check device type
+   const isAndroid = /Android/i.test(navigator.userAgent);
+   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+   const isMobile = isAndroid || isIOS;
    
    if (isMobile) {
      // On mobile, directly use native camera/file picker
      const fileInput = document.createElement('input');
      fileInput.type = 'file';
      fileInput.accept = 'image/*';
-     // Remove capture attribute to show all options (camera, photo library, etc.)
+     
+     // Android-specific: add capture attribute to force camera options
+     if (isAndroid) {
+       fileInput.capture = 'camera'; // This should show camera options on Android
+     }
+     // iOS works fine without capture attribute
+     
      fileInput.onchange = (event) => {
        const file = event.target.files[0];
        if (file && file.type.startsWith('image/')) {
@@ -107,15 +115,22 @@ function App() {
  };
 
  const handleCameraCapture = async () => {
-   // Check if we're on mobile - if so, use native file input instead of custom camera
-   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+   // Check device type
+   const isAndroid = /Android/i.test(navigator.userAgent);
+   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+   const isMobile = isAndroid || isIOS;
    
    if (isMobile) {
      // On mobile, use native camera via file input
      const fileInput = document.createElement('input');
      fileInput.type = 'file';
      fileInput.accept = 'image/*';
-     // Remove capture attribute to show all options
+     
+     // Android-specific: add capture attribute
+     if (isAndroid) {
+       fileInput.capture = 'camera';
+     }
+     
      fileInput.onchange = (event) => {
        const file = event.target.files[0];
        if (file && file.type.startsWith('image/')) {
@@ -244,15 +259,22 @@ function App() {
      URL.revokeObjectURL(cameraPreview.imageUrl); // Clean up memory
      setCameraPreview(null);
      
-     // Check if we're on mobile
-     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+     // Check device type
+     const isAndroid = /Android/i.test(navigator.userAgent);
+     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+     const isMobile = isAndroid || isIOS;
      
      if (isMobile) {
        // On mobile, use native camera via file input
        const fileInput = document.createElement('input');
        fileInput.type = 'file';
        fileInput.accept = 'image/*';
-       // Remove capture attribute to show all options
+       
+       // Android-specific: add capture attribute
+       if (isAndroid) {
+         fileInput.capture = 'camera';
+       }
+       
        fileInput.onchange = (event) => {
          const file = event.target.files[0];
          if (file && file.type.startsWith('image/')) {
