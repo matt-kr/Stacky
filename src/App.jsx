@@ -8,6 +8,11 @@ const API_URL = '/api/reply';
 const systemPrompt = "You are a helpful AI assistant.";
 
 function App() {
+ const [showGreeting, setShowGreeting] = useState(false);
+ const handleLogoClick = () => {
+   setShowGreeting(true);
+   setTimeout(() => setShowGreeting(false), 2000);
+ };
  const [messages, setMessages] = useState(() => { // Array to hold all messages
  const savedMessages = localStorage.getItem('chatMessages');
     return savedMessages ? JSON.parse(savedMessages) : [];
@@ -104,10 +109,14 @@ const cancelRetry = () => {
 
   return (
    <div className="chatbot-container">
-      <header className="chat-header">
-
+      <header className="chat-header" style={{position: 'sticky', top: 0, zIndex: 10, background: 'var(--container-bg)'}}>
         <h1>ReturnStacky</h1>
-                <img src="/Stacky.png" alt="Stacky Logo" className="header-logo" />
+        <div style={{position: 'relative', display: 'inline-block'}}>
+          <img src="/Stacky.png" alt="Stacky Logo" className="header-logo" style={{cursor: 'pointer'}} onClick={handleLogoClick} />
+          {showGreeting && (
+            <div className="greeting-bubble">Hi there!<br/>How can I help?</div>
+          )}
+        </div>
       </header>
        <MessageList messages={messages} isLoading={isLoading} />
        <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />
