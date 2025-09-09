@@ -47,6 +47,27 @@ function App() {
  };
 
  const handlePhotoClick = () => {
+   // Check if we're on mobile - if so, directly open native camera/file picker
+   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+   
+   if (isMobile) {
+     // On mobile, directly use native camera/file picker
+     const fileInput = document.createElement('input');
+     fileInput.type = 'file';
+     fileInput.accept = 'image/*';
+     fileInput.capture = 'environment'; // This gives options for camera, but doesn't force it
+     fileInput.onchange = (event) => {
+       const file = event.target.files[0];
+       if (file && file.type.startsWith('image/')) {
+         const imageUrl = URL.createObjectURL(file);
+         setCameraPreview({ imageUrl, file });
+       }
+     };
+     fileInput.click();
+     return;
+   }
+
+   // Desktop: show photo menu
    if (showPhotoMenu) {
      // Start closing animation
      setIsPhotoMenuClosing(true);
