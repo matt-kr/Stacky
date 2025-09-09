@@ -58,7 +58,7 @@ function App() {
      fileInput.type = 'file';
      fileInput.accept = 'image/*';
      
-     // Don't use capture attribute - let user choose camera or gallery
+     // Don't use capture attribute at all - let Android show its default options
      
      fileInput.onchange = async (event) => {
        const file = event.target.files[0];
