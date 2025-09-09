@@ -9,9 +9,24 @@ const systemPrompt = "You are a helpful AI assistant.";
 
 function App() {
  const [showGreeting, setShowGreeting] = useState(false);
+ const [showHeaderMenu, setShowHeaderMenu] = useState(false);
  const handleLogoClick = () => {
    setShowGreeting(true);
    setTimeout(() => setShowGreeting(false), 2000);
+ };
+
+ const handleHeaderClick = () => {
+   setShowHeaderMenu(!showHeaderMenu);
+ };
+
+ const handleNewChat = () => {
+   setMessages([]);
+   setShowHeaderMenu(false);
+ };
+
+ const handleGoToWebsite = () => {
+   window.open('https://returnstack.ai/', '_blank');
+   setShowHeaderMenu(false);
  };
  const [messages, setMessages] = useState(() => { // Array to hold all messages
  const savedMessages = localStorage.getItem('chatMessages');
@@ -110,7 +125,15 @@ const cancelRetry = () => {
   return (
    <div className="chatbot-container">
       <header className="chat-header" style={{position: 'sticky', top: 0, zIndex: 10, background: 'var(--container-bg)'}}>
-        <h1>ReturnStacky</h1>
+        <h1 onClick={handleHeaderClick} style={{cursor: 'pointer', position: 'relative'}}>
+          ReturnStacky
+          {showHeaderMenu && (
+            <div className="header-menu">
+              <button onClick={handleNewChat}>New Chat</button>
+              <button onClick={handleGoToWebsite}>Visit ReturnStack.ai</button>
+            </div>
+          )}
+        </h1>
         <div style={{position: 'relative', display: 'inline-block'}}>
           <img src="/Stacky.png" alt="Stacky Logo" className="header-logo" style={{cursor: 'pointer'}} onClick={handleLogoClick} />
           {showGreeting && (
