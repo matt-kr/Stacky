@@ -373,7 +373,7 @@ body {
 
 /* Photo Button */
 .photo-button {
-  background: none;
+  background: #F8F9FA;
   border: 1px solid #D1D5DB;
   border-radius: 50%;
   width: 40px;
@@ -382,13 +382,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
-  font-weight: 300;
+  font-size: 20px;
   color: var(--text-light);
   transition: opacity 0.15s ease, border-color 0.2s ease;
   outline: none;
   padding: 0;
-  line-height: 0.8;
+  font-family: monospace;
+  transform: translateY(-1px);
 }
 
 .photo-button:focus {
@@ -457,6 +457,7 @@ body {
   line-height: 1.5;
   max-height: 120px;
   overflow-y: auto;
+  background-color: #F8F9FA;
 }
 
 .chat-input:focus {
