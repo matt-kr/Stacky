@@ -50,8 +50,8 @@ const handleSubmit = (e) => {
         </button>
         {showPhotoMenu && (
           <div className={`photo-menu ${isPhotoMenuClosing ? 'closing' : ''}`}>
-            <button type="button" onClick={onPhotoUpload}>📷 Camera</button>
-            <button type="button" onClick={onCameraCapture}>↑ Upload</button>
+            <button type="button" onClick={onCameraCapture}>📷 Camera</button>
+            <button type="button" onClick={onPhotoUpload}>↑ Upload</button>
           </div>
         )}
       </div>
