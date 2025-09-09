@@ -371,6 +371,16 @@ body {
   animation: slideUpIn 0.6s ease-out 0.8s both;
 }
 
+.chat-input-form:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.chat-input-form * {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 /* Photo Button */
 .photo-button {
   background: #F8F9FA;
@@ -465,7 +475,7 @@ body {
 
 .send-button {
   background-color: var(--brand-green);
-  border: none;
+  border: 1px solid #D1D5DB;
   border-radius: 50%; /* Circle shape */
   width: 48px;
   height: 48px;
@@ -474,10 +484,40 @@ body {
   justify-content: center;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.send-button:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border: 1px solid #D1D5DB !important;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.send-button:active {
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.send-button:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .send-button:hover {
   background-color: #BEF264; /* A slightly lighter green for hover */
+  outline: none !important;
+  box-shadow: none !important;
+  border: 1px solid #D1D5DB !important;
 }
 
 .send-button:disabled {
