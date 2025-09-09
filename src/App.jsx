@@ -200,10 +200,34 @@ function App() {
    }
  };
 
- const handleRetakePhoto = () => {
+ const handleRetakePhoto = async () => {
    if (cameraPreview) {
      URL.revokeObjectURL(cameraPreview.imageUrl); // Clean up memory
      setCameraPreview(null);
+     
+     // Restart camera for a new photo
+     try {
+       // Check if we're on mobile or desktop
+       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+       
+       // Camera constraints - use back camera on mobile, default on desktop
+       const constraints = {
+         video: {
+           facingMode: isMobile ? 'environment' : 'user', // 'environment' = back camera, 'user' = front camera
+           width: { ideal: 1920 },
+           height: { ideal: 1080 }
+         }
+       };
+
+       // Get camera stream
+       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+       setCameraStream(stream);
+       setShowCameraView(true);
+       
+     } catch (error) {
+       console.error('Camera access failed:', error);
+       alert('Camera access failed. Please check permissions and try again.');
+     }
    }
  };
 
