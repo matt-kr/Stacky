@@ -53,22 +53,57 @@ function App() {
    const isMobile = isAndroid || isIOS;
    
    if (isMobile) {
-     // On mobile, directly use native camera/file picker
+     // On mobile, directly use native camera/file picker and send immediately
      const fileInput = document.createElement('input');
      fileInput.type = 'file';
      fileInput.accept = 'image/*';
      
-     // Android-specific: add capture attribute to force camera options
-     if (isAndroid) {
-       fileInput.capture = 'camera'; // This should show camera options on Android
-     }
-     // iOS works fine without capture attribute
+     // Don't use capture attribute - let user choose camera or gallery
      
-     fileInput.onchange = (event) => {
+     fileInput.onchange = async (event) => {
        const file = event.target.files[0];
        if (file && file.type.startsWith('image/')) {
+         // Create message and send immediately (skip our custom preview)
          const imageUrl = URL.createObjectURL(file);
-         setCameraPreview({ imageUrl, file });
+         const newMessage = {
+           id: Date.now(),
+           text: 'I\'ve shared an image with you.',
+           sender: 'user',
+           image: imageUrl,
+           timestamp: new Date()
+         };
+         
+         const updatedMessages = [...messages, newMessage];
+         setMessages(updatedMessages);
+         
+         // Send to API
+         setIsLoading(true);
+         setError(null);
+         
+         try {
+           const apiMessages = [
+             ...updatedMessages.slice(0, -1).map(msg => ({ role: msg.sender, content: msg.text })),
+             { role: 'user', content: 'I\'ve shared an image with you. [Image uploaded but not processed in this demo]' }
+           ];
+           
+           const response = await sendMessage(apiMessages);
+           const assistantMessage = {
+             id: Date.now() + 1,
+             text: response,
+             sender: 'assistant',
+             timestamp: new Date()
+           };
+           
+           const finalMessages = [...updatedMessages, assistantMessage];
+           setMessages(finalMessages);
+           localStorage.setItem('chatMessages', JSON.stringify(finalMessages));
+           
+         } catch (error) {
+           console.error('Error sending message:', error);
+           setError('Failed to send message. Please try again.');
+         } finally {
+           setIsLoading(false);
+         }
        }
      };
      fileInput.click();
