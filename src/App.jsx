@@ -9,24 +9,37 @@ const systemPrompt = "You are a helpful AI assistant.";
 
 function App() {
  const [showGreeting, setShowGreeting] = useState(false);
- const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+ const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
+ const [isDarkMode, setIsDarkMode] = useState(false);
+ const [soundEnabled, setSoundEnabled] = useState(true);
+ 
  const handleLogoClick = () => {
    setShowGreeting(true);
    setTimeout(() => setShowGreeting(false), 2000);
  };
 
- const handleHeaderClick = () => {
-   setShowHeaderMenu(!showHeaderMenu);
+ const handleHamburgerClick = () => {
+   setShowHamburgerMenu(!showHamburgerMenu);
  };
 
  const handleNewChat = () => {
    setMessages([]);
-   setShowHeaderMenu(false);
+   setShowHamburgerMenu(false);
  };
 
  const handleGoToWebsite = () => {
    window.open('https://returnstack.ai/', '_blank');
-   setShowHeaderMenu(false);
+   setShowHamburgerMenu(false);
+ };
+
+ const toggleDarkMode = () => {
+   setIsDarkMode(!isDarkMode);
+   setShowHamburgerMenu(false);
+ };
+
+ const toggleSound = () => {
+   setSoundEnabled(!soundEnabled);
+   setShowHamburgerMenu(false);
  };
  const [messages, setMessages] = useState(() => { // Array to hold all messages
  const savedMessages = localStorage.getItem('chatMessages');
@@ -41,17 +54,17 @@ function App() {
     localStorage.setItem('chatMessages', JSON.stringify(messages));
   }, [messages]);
 
-  // Close header menu when clicking outside
+  // Close hamburger menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showHeaderMenu && !event.target.closest('.chat-header h1')) {
-        setShowHeaderMenu(false);
+      if (showHamburgerMenu && !event.target.closest('.hamburger-menu-container')) {
+        setShowHamburgerMenu(false);
       }
     };
 
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, [showHeaderMenu]);
+  }, [showHamburgerMenu]);
 
 
 const handleSendMessage = async (text, retryCount = 0) => {
@@ -137,15 +150,27 @@ const cancelRetry = () => {
   return (
    <div className="chatbot-container">
       <header className="chat-header" style={{position: 'sticky', top: 0, zIndex: 10, background: 'var(--container-bg)'}}>
-        <h1 onClick={handleHeaderClick} style={{cursor: 'pointer', position: 'relative'}}>
-          ReturnStacky
-          {showHeaderMenu && (
-            <div className="header-menu">
+        <div className="hamburger-menu-container" style={{position: 'relative'}}>
+          <button className="hamburger-button" onClick={handleHamburgerClick}>
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          {showHamburgerMenu && (
+            <div className="hamburger-menu">
               <button onClick={handleNewChat}>New Chat</button>
               <button onClick={handleGoToWebsite}>Visit ReturnStack.ai</button>
+              <hr />
+              <button onClick={toggleDarkMode}>
+                {isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+              </button>
+              <button onClick={toggleSound}>
+                {soundEnabled ? '🔇 Sound Off' : '🔊 Sound On'}
+              </button>
             </div>
           )}
-        </h1>
+        </div>
+        <h1>ReturnStacky</h1>
         <div style={{position: 'relative', display: 'inline-block'}}>
           <img src="/Stacky.png" alt="Stacky Logo" className="header-logo" style={{cursor: 'pointer'}} onClick={handleLogoClick} />
           {showGreeting && (

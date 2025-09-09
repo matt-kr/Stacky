@@ -103,6 +103,66 @@
 .header-menu button:hover {
   background-color: var(--brand-green-light);
 }
+
+/* Hamburger Menu */
+.hamburger-button {
+  background: none;
+  border: none;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0;
+}
+
+.hamburger-button span {
+  width: 20px;
+  height: 2px;
+  background-color: #013419;
+  border-radius: 1px;
+  transition: all 0.3s ease;
+}
+
+.hamburger-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #fff;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 180px;
+}
+
+.hamburger-menu button {
+  background: none;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #013419;
+  transition: background-color 0.2s;
+  text-align: left;
+}
+
+.hamburger-menu button:hover {
+  background-color: var(--brand-green-light);
+}
+
+.hamburger-menu hr {
+  border: none;
+  height: 1px;
+  background-color: #E2E8F0;
+  margin: 0.25rem 0;
+}
 /* --- 1. Variables and Global Resets --- */
 :root {
   /* Color Palette inspired by returnstack.ai */
