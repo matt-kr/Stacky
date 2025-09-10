@@ -19,7 +19,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // or whichever model you prefer
+        model: 'gpt-4o', // or whichever model you prefer
         messages: [
           {
             role: 'user',

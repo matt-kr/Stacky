@@ -96,11 +96,6 @@ function App() {
      const updatedMessages = [...messages, newMessage];
      setMessages(updatedMessages);
      localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
-     
-     // Send a follow-up text message about the image
-     setTimeout(() => {
-       handleSendMessage('I\'ve shared an image with you. [Image uploaded but not processed in this demo]');
-     }, 100);
    };
    reader.readAsDataURL(file);
  };
@@ -248,11 +243,6 @@ function App() {
      
      // Clean up the preview
      setCameraPreview(null);
-     
-     // Send a follow-up text message about the image using the existing handleSendMessage function
-     setTimeout(() => {
-       handleSendMessage('I\'ve shared an image with you. [Image uploaded but not processed in this demo]');
-     }, 100);
    }
  };
 
