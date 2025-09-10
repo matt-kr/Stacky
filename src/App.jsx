@@ -96,6 +96,11 @@ function App() {
      const updatedMessages = [...messages, newMessage];
      setMessages(updatedMessages);
      localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
+     
+     // Auto-trigger AI response for the image
+     setTimeout(() => {
+       handleSendMessage('What do you see in this image?');
+     }, 100);
    };
    reader.readAsDataURL(file);
  };
@@ -243,6 +248,11 @@ function App() {
      
      // Clean up the preview
      setCameraPreview(null);
+     
+     // Auto-trigger AI response for the image
+     setTimeout(() => {
+       handleSendMessage('What do you see in this image?');
+     }, 100);
    }
  };
 
