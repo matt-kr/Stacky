@@ -5,10 +5,43 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { message } = req.body;
+    const { message, imageData } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Prepare messages array
+    const messages = [
+      {
+        role: 'system',
+        content: 'You are Stacky, a helpful AI assistant created by ReturnStack. You are friendly, knowledgeable, and can view and analyze images when they are shared with you.'
+      }
+    ];
+
+    // If there's an image, create a vision message
+    if (imageData) {
+      messages.push({
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: message
+          },
+          {
+            type: 'image_url',
+            image_url: {
+              url: imageData
+            }
+          }
+        ]
+      });
+    } else {
+      // Text-only message
+      messages.push({
+        role: 'user',
+        content: message
+      });
     }
 
     // Call OpenAI API
@@ -19,13 +52,8 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o', // or whichever model you prefer
-        messages: [
-          {
-            role: 'user',
-            content: message
-          }
-        ],
+        model: 'gpt-4o',
+        messages: messages,
         max_tokens: 1000,
         temperature: 0.7,
       }),

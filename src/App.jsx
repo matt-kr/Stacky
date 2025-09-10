@@ -369,23 +369,25 @@ const handleSendMessage = async (text, retryCount = 0) => {
       setError(null);
     }
 
-    // Build the history string from current messages
+    // Check if the last message from user has an image
     const currentMessages = retryCount === 0 ? [...messages, { text, sender: 'user' }] : messages;
-    const history = currentMessages.map(msg => {
-      return `${msg.sender === 'user' ? 'User' : 'Assistant'}: ${msg.text}`;
-    }).join('\n');
-    
-    const promptToSend = `${systemPrompt}
-
----
-${history}
-Assistant:`;
+    const lastUserMessage = [...currentMessages].reverse().find(msg => msg.sender === 'user');
+    const hasImage = lastUserMessage && lastUserMessage.image;
 
   try {
+    const requestBody = {
+      message: text
+    };
+
+    // If the last user message has an image, include it
+    if (hasImage) {
+      requestBody.imageData = lastUserMessage.image;
+    }
+
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: promptToSend }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
