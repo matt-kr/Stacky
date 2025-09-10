@@ -376,7 +376,8 @@ const handleSendMessage = async (text, retryCount = 0) => {
 
   try {
     const requestBody = {
-      message: text
+      message: text,
+      conversationHistory: currentMessages.slice(0, -1) // All messages except the current one
     };
 
     // If the last user message has an image, include it

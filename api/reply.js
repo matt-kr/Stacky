@@ -5,13 +5,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { message, imageData } = req.body;
+    const { message, imageData, conversationHistory } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Prepare messages array
+    // Prepare messages array with system prompt
     const messages = [
       {
         role: 'system',
@@ -19,7 +19,43 @@ export default async function handler(req, res) {
       }
     ];
 
-    // If there's an image, create a vision message
+    // Add conversation history
+    if (conversationHistory && Array.isArray(conversationHistory)) {
+      conversationHistory.forEach(msg => {
+        if (msg.sender === 'user') {
+          // Handle user messages (with or without images)
+          if (msg.image) {
+            messages.push({
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: msg.text
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: msg.image
+                  }
+                }
+              ]
+            });
+          } else {
+            messages.push({
+              role: 'user',
+              content: msg.text
+            });
+          }
+        } else if (msg.sender === 'assistant') {
+          messages.push({
+            role: 'assistant',
+            content: msg.text
+          });
+        }
+      });
+    }
+
+    // Add the current message
     if (imageData) {
       messages.push({
         role: 'user',
@@ -37,7 +73,6 @@ export default async function handler(req, res) {
         ]
       });
     } else {
-      // Text-only message
       messages.push({
         role: 'user',
         content: message
