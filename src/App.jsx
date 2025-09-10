@@ -270,8 +270,11 @@ function App() {
        fileInput.onchange = (event) => {
          const file = event.target.files[0];
          if (file && file.type.startsWith('image/')) {
-           const imageUrl = URL.createObjectURL(file);
-           setCameraPreview({ imageUrl, file });
+           const reader = new FileReader();
+           reader.onload = () => {
+             setCameraPreview({ imageUrl: reader.result, file });
+           };
+           reader.readAsDataURL(file);
          }
        };
        fileInput.click();
@@ -316,7 +319,12 @@ function App() {
  };
  const [messages, setMessages] = useState(() => { // Array to hold all messages
  const savedMessages = localStorage.getItem('chatMessages');
-    return savedMessages ? JSON.parse(savedMessages) : [];
+    if (savedMessages) {
+      const parsed = JSON.parse(savedMessages);
+      // Filter out messages with blob URLs to prevent errors
+      return parsed.filter(msg => !msg.image || !msg.image.startsWith('blob:'));
+    }
+    return [];
   });
  const [isLoading, setIsLoading] = useState(false); // For loading state
  const [error, setError] = useState(null); // For API errors
