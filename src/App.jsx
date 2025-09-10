@@ -91,8 +91,15 @@ function App() {
        if (file && file.type.startsWith('image/')) {
          // Convert file to data URL for iOS
          const reader = new FileReader();
-         reader.onload = () => {
-           sendImageMessage(reader.result);
+         reader.onload = async () => {
+           try {
+             // Compress image for iOS too to avoid memory issues
+             const compressedImageUrl = await compressImage(reader.result, 0.7, 1024);
+             sendImageMessage(compressedImageUrl);
+           } catch (error) {
+             console.warn('Image compression failed, using original:', error);
+             sendImageMessage(reader.result);
+           }
          };
          reader.readAsDataURL(file);
        }
@@ -118,7 +125,7 @@ const sendImageMessage = async (fileOrDataUrl) => {
   let imageUrl;
   
   if (typeof fileOrDataUrl === 'string') {
-    // Already a data URL (from iOS direct upload)
+    // Already a data URL (from iOS direct upload or camera capture)
     imageUrl = fileOrDataUrl;
     
     // Create a new message with the image
