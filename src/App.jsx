@@ -722,10 +722,10 @@ function App() {
             <div className={`hamburger-menu ${isHamburgerMenuClosing ? 'closing' : ''}`}>
               <button onClick={handleNewChat}>New Chat</button>
               <button onClick={handleGoToWebsite}>Visit ReturnStack.ai</button>
-              <hr />
+              {/* <hr />
               <button onClick={toggleSound}>
                 {soundEnabled ? '🔇 Sound Off' : '🔊 Sound On'}
-              </button>
+              </button> */}
             </div>
           )}
         </div>
