@@ -97,9 +97,9 @@ function App() {
      setMessages(updatedMessages);
      localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
      
-     // Auto-trigger AI response for the image
+     // Auto-trigger AI response for the image with the updated messages
      setTimeout(() => {
-       handleSendMessage('What do you see in this image?');
+       handleSendMessageWithContext('What do you see in this image?', updatedMessages);
      }, 100);
    };
    reader.readAsDataURL(file);
@@ -249,9 +249,9 @@ function App() {
      // Clean up the preview
      setCameraPreview(null);
      
-     // Auto-trigger AI response for the image
+     // Auto-trigger AI response for the image with the updated messages
      setTimeout(() => {
-       handleSendMessage('What do you see in this image?');
+       handleSendMessageWithContext('What do you see in this image?', updatedMessages);
      }, 100);
    }
  };
@@ -360,6 +360,81 @@ function App() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [showHamburgerMenu, showPhotoMenu]);
 
+const handleSendMessageWithContext = async (text, contextMessages = null, retryCount = 0) => {
+    const maxRetries = 3;
+    const baseDelay = 1000;
+    const messagesToUse = contextMessages || messages;
+
+    if (retryCount === 0) {
+      const userMessage = {
+        id: Date.now(),
+        text,
+        sender: 'user',
+        timestamp: new Date(),
+      };
+      
+      const updatedMessages = [...messagesToUse, userMessage];
+      setMessages(updatedMessages);
+      setIsLoading(true);
+      setError(null);
+    }
+
+    // Check if the last message from user has an image
+    const currentMessages = retryCount === 0 ? [...messagesToUse, { text, sender: 'user' }] : messagesToUse;
+    const lastUserMessage = [...currentMessages].reverse().find(msg => msg.sender === 'user');
+    const hasImage = lastUserMessage && lastUserMessage.image;
+
+  try {
+    const requestBody = {
+      message: text,
+      conversationHistory: currentMessages.slice(0, -1) // All messages except the current one
+    };
+
+    // If the last user message has an image, include it
+    if (hasImage) {
+      requestBody.imageData = lastUserMessage.image;
+    }
+
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({ error: 'Failed to parse error JSON' }));
+      throw new Error(errData.error || `HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const assistantMessage = {
+      id: Date.now() + 1,
+      text: data.reply,
+      sender: 'assistant',
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, assistantMessage]);
+    setRetryInfo(null);
+
+  } catch (err) {
+    if (retryCount < maxRetries) {
+      const delay = baseDelay * Math.pow(2, retryCount);
+      const timeoutId = setTimeout(() => {
+        handleSendMessageWithContext(text, contextMessages, retryCount + 1);
+      }, delay);
+      
+      setRetryInfo({ attempt: retryCount + 1, maxRetries, timeoutId });
+      return;
+    }
+    
+    setError(err.message);
+    setRetryInfo(null);
+  } finally {
+    if (retryCount >= maxRetries || retryCount === 0) {
+      setIsLoading(false);
+    }
+  }
+};
 
 const handleSendMessage = async (text, retryCount = 0) => {
     const maxRetries = 3;
