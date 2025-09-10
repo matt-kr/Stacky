@@ -82,47 +82,27 @@ function App() {
  };
 
  const sendImageMessage = async (file) => {
-   // Create message and send immediately
-   const imageUrl = URL.createObjectURL(file);
-   const newMessage = {
-     id: Date.now(),
-     text: 'I\'ve shared an image with you.',
-     sender: 'user',
-     image: imageUrl,
-     timestamp: new Date()
-   };
-   
-   const updatedMessages = [...messages, newMessage];
-   setMessages(updatedMessages);
-   
-   // Send to API
-   setIsLoading(true);
-   setError(null);
-   
-   try {
-     const apiMessages = [
-       ...updatedMessages.slice(0, -1).map(msg => ({ role: msg.sender, content: msg.text })),
-       { role: 'user', content: 'I\'ve shared an image with you. [Image uploaded but not processed in this demo]' }
-     ];
-     
-     const response = await sendMessage(apiMessages);
-     const assistantMessage = {
-       id: Date.now() + 1,
-       text: response,
-       sender: 'assistant',
+   // Convert file to data URL for persistent storage
+   const reader = new FileReader();
+   reader.onload = async () => {
+     const newMessage = {
+       id: Date.now(),
+       text: 'I\'ve shared an image with you.',
+       sender: 'user',
+       image: reader.result,
        timestamp: new Date()
      };
      
-     const finalMessages = [...updatedMessages, assistantMessage];
-     setMessages(finalMessages);
-     localStorage.setItem('chatMessages', JSON.stringify(finalMessages));
+     const updatedMessages = [...messages, newMessage];
+     setMessages(updatedMessages);
+     localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
      
-   } catch (error) {
-     console.error('Error sending message:', error);
-     setError('Failed to send message. Please try again.');
-   } finally {
-     setIsLoading(false);
-   }
+     // Send a follow-up text message about the image
+     setTimeout(() => {
+       handleSendMessage('I\'ve shared an image with you. [Image uploaded but not processed in this demo]');
+     }, 100);
+   };
+   reader.readAsDataURL(file);
  };
 
  const closePhotoMenu = () => {
@@ -196,9 +176,12 @@ function App() {
        if (isMobile) {
          await sendImageMessage(file);
        } else {
-         // Desktop: show preview
-         const imageUrl = URL.createObjectURL(file);
-         setCameraPreview({ imageUrl, file });
+         // Desktop: show preview with data URL
+         const reader = new FileReader();
+         reader.onload = () => {
+           setCameraPreview({ imageUrl: reader.result, file });
+         };
+         reader.readAsDataURL(file);
        }
      }
    };
@@ -227,9 +210,14 @@ function App() {
      canvas.toBlob((blob) => {
        if (blob) {
          const file = new File([blob], `camera-capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-         const imageUrl = URL.createObjectURL(blob);
-         setCameraPreview({ imageUrl, file });
-         closeCameraView();
+         
+         // Convert blob to data URL for persistent storage
+         const reader = new FileReader();
+         reader.onload = () => {
+           setCameraPreview({ imageUrl: reader.result, file });
+           closeCameraView();
+         };
+         reader.readAsDataURL(blob);
        }
      }, 'image/jpeg', 0.9);
    };
@@ -256,46 +244,21 @@ function App() {
      
      const updatedMessages = [...messages, newMessage];
      setMessages(updatedMessages);
+     localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
      
      // Clean up the preview
      setCameraPreview(null);
      
-     // Send the message with image to the API
-     setIsLoading(true);
-     setError(null);
-     
-     try {
-       // For now, we'll just send a text message about the image
-       // In a real implementation, you'd upload the image to a server and send the URL
-       const apiMessages = [
-         ...updatedMessages.slice(0, -1).map(msg => ({ role: msg.sender, content: msg.text })),
-         { role: 'user', content: 'I\'ve shared an image with you. [Image uploaded but not processed in this demo]' }
-       ];
-       
-       const response = await sendMessage(apiMessages);
-       const assistantMessage = {
-         id: Date.now() + 1,
-         text: response,
-         sender: 'assistant',
-         timestamp: new Date()
-       };
-       
-       const finalMessages = [...updatedMessages, assistantMessage];
-       setMessages(finalMessages);
-       localStorage.setItem('chatMessages', JSON.stringify(finalMessages));
-       
-     } catch (error) {
-       console.error('Error sending message:', error);
-       setError('Failed to send message. Please try again.');
-     } finally {
-       setIsLoading(false);
-     }
+     // Send a follow-up text message about the image using the existing handleSendMessage function
+     setTimeout(() => {
+       handleSendMessage('I\'ve shared an image with you. [Image uploaded but not processed in this demo]');
+     }, 100);
    }
  };
 
  const handleRetakePhoto = async () => {
    if (cameraPreview) {
-     URL.revokeObjectURL(cameraPreview.imageUrl); // Clean up memory
+     // No need to revoke data URLs
      setCameraPreview(null);
      
      // Check device type
