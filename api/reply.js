@@ -121,7 +121,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',          // Vision-enabled model
+        model: 'gpt-4o',          // Vision-enabled model
         messages: messages,            // Conversation with system prompt and history
         max_tokens: 1000,             // Response length limit
         temperature: 0.7,             // Creativity/randomness level
