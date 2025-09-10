@@ -8,6 +8,34 @@ const API_URL = '/api/reply';
 const systemPrompt = "You are a helpful AI assistant.";
 
 function App() {
+  // Image compression function for Android
+  const compressImage = (dataUrl, quality = 0.7, maxWidth = 1024) => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      img.onload = () => {
+        // Calculate new dimensions
+        let { width, height } = img;
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw and compress
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressedDataUrl);
+      };
+      
+      img.src = dataUrl;
+    });
+  };
+
  const [showGreeting, setShowGreeting] = useState(false);
  const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
  const [isHamburgerMenuClosing, setIsHamburgerMenuClosing] = useState(false);
@@ -61,7 +89,12 @@ function App() {
      fileInput.onchange = async (event) => {
        const file = event.target.files[0];
        if (file && file.type.startsWith('image/')) {
-         await sendImageMessage(file);
+         // Convert file to data URL for iOS
+         const reader = new FileReader();
+         reader.onload = () => {
+           sendImageMessage(reader.result);
+         };
+         reader.readAsDataURL(file);
        }
      };
      fileInput.click();
@@ -81,15 +114,19 @@ function App() {
    }
  };
 
-const sendImageMessage = async (file) => {
-  // Convert file to data URL for persistent storage
-  const reader = new FileReader();
-  reader.onload = async () => {
+const sendImageMessage = async (fileOrDataUrl) => {
+  let imageUrl;
+  
+  if (typeof fileOrDataUrl === 'string') {
+    // Already a data URL (from iOS direct upload)
+    imageUrl = fileOrDataUrl;
+    
+    // Create a new message with the image
     const newMessage = {
       id: Date.now(),
-      text: 'Ive shared an image with you.',
+      text: '',
       sender: 'user',
-      image: reader.result,
+      image: imageUrl,
       timestamp: new Date()
     };
     
@@ -99,10 +136,43 @@ const sendImageMessage = async (file) => {
     
     // Auto-trigger AI response for the image with the updated messages
     setTimeout(() => {
-      handleSendMessageWithContext('What do you see in this image?', updatedMessages);
+      handleSendMessageWithContext('I\'ve shared an image with you.', updatedMessages);
     }, 100);
-  };
-  reader.readAsDataURL(file);
+  } else {
+    // It's a File object, convert to data URL with compression for Android
+    const reader = new FileReader();
+    reader.onload = async () => {
+      let finalImageUrl = reader.result;
+      
+      // Compress image for Android to avoid JSON parsing issues
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      if (isAndroid) {
+        try {
+          finalImageUrl = await compressImage(reader.result, 0.7, 1024);
+        } catch (error) {
+          console.warn('Image compression failed, using original:', error);
+        }
+      }
+      
+      const newMessage = {
+        id: Date.now(),
+        text: '',
+        sender: 'user',
+        image: finalImageUrl,
+        timestamp: new Date()
+      };
+      
+      const updatedMessages = [...messages, newMessage];
+      setMessages(updatedMessages);
+      localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
+      
+      // Auto-trigger AI response for the image with the updated messages
+      setTimeout(() => {
+        handleSendMessageWithContext('I\'ve shared an image with you.', updatedMessages);
+      }, 100);
+    };
+    reader.readAsDataURL(fileOrDataUrl);
+  }
 }; const closePhotoMenu = () => {
    if (showPhotoMenu) {
      setIsPhotoMenuClosing(true);
@@ -231,12 +301,24 @@ const sendImageMessage = async (file) => {
 
  const handleConfirmPhoto = async () => {
    if (cameraPreview) {
+     let finalImageUrl = cameraPreview.imageUrl;
+     
+     // Compress image for Android to avoid JSON parsing issues
+     const isAndroid = /Android/i.test(navigator.userAgent);
+     if (isAndroid) {
+       try {
+         finalImageUrl = await compressImage(cameraPreview.imageUrl, 0.7, 1024);
+       } catch (error) {
+         console.warn('Image compression failed, using original:', error);
+       }
+     }
+     
      // Create a new message with the image
      const newMessage = {
        id: Date.now(),
        text: '',
        sender: 'user',
-       image: cameraPreview.imageUrl,
+       image: finalImageUrl,
        timestamp: new Date()
      };
      
@@ -391,6 +473,15 @@ const handleSendMessageWithContext = async (text, contextMessages = null, retryC
     // If the last user message has an image, include it
     if (hasImage) {
       requestBody.imageData = lastUserMessage.image;
+      
+      // Log payload size for debugging Android issues
+      const payloadSize = JSON.stringify(requestBody).length;
+      console.log('Request payload size:', payloadSize, 'bytes');
+      
+      // Warn if payload is very large (might cause Android issues)
+      if (payloadSize > 5000000) { // 5MB
+        console.warn('Large payload detected, this might cause issues on Android');
+      }
     }
 
     const response = await fetch(API_URL, {
@@ -400,11 +491,36 @@ const handleSendMessageWithContext = async (text, contextMessages = null, retryC
     });
 
     if (!response.ok) {
-      const errData = await response.json().catch(() => ({ error: 'Failed to parse error JSON' }));
+      const responseText = await response.text();
+      console.error('API Error Response:', responseText);
+      
+      let errData;
+      try {
+        errData = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse error response as JSON:', parseError);
+        errData = { error: `HTTP ${response.status}: ${responseText || 'Unknown error'}` };
+      }
+      
       throw new Error(errData.error || `HTTP error! status: ${response.status}`);
     }
 
-    const data = await response.json();
+    const responseText = await response.text();
+    console.log('API Response Text:', responseText);
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Failed to parse response JSON:', parseError);
+      console.error('Response text:', responseText);
+      throw new Error('Failed to parse AI response - invalid JSON received');
+    }
+    
+    if (!data.reply) {
+      throw new Error('No reply received from AI');
+    }
+
     const assistantMessage = {
       id: Date.now() + 1,
       text: data.reply,
