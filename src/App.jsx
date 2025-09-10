@@ -81,31 +81,29 @@ function App() {
    }
  };
 
- const sendImageMessage = async (file) => {
-   // Convert file to data URL for persistent storage
-   const reader = new FileReader();
-   reader.onload = async () => {
-     const newMessage = {
-       id: Date.now(),
-       text: 'I\'ve shared an image with you.',
-       sender: 'user',
-       image: reader.result,
-       timestamp: new Date()
-     };
-     
-     const updatedMessages = [...messages, newMessage];
-     setMessages(updatedMessages);
-     localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
-     
-     // Auto-trigger AI response for the image with the updated messages
-     setTimeout(() => {
-       handleSendMessageWithContext('What do you see in this image?', updatedMessages);
-     }, 100);
-   };
-   reader.readAsDataURL(file);
- };
-
- const closePhotoMenu = () => {
+const sendImageMessage = async (file) => {
+  // Convert file to data URL for persistent storage
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const newMessage = {
+      id: Date.now(),
+      text: 'Ive shared an image with you.',
+      sender: 'user',
+      image: reader.result,
+      timestamp: new Date()
+    };
+    
+    const updatedMessages = [...messages, newMessage];
+    setMessages(updatedMessages);
+    localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
+    
+    // Auto-trigger AI response for the image with the updated messages
+    setTimeout(() => {
+      handleSendMessageWithContext('What do you see in this image?', updatedMessages);
+    }, 100);
+  };
+  reader.readAsDataURL(file);
+}; const closePhotoMenu = () => {
    if (showPhotoMenu) {
      setIsPhotoMenuClosing(true);
      setTimeout(() => {
@@ -236,7 +234,7 @@ function App() {
      // Create a new message with the image
      const newMessage = {
        id: Date.now(),
-       text: 'I\'ve shared an image with you.',
+       text: '',
        sender: 'user',
        image: cameraPreview.imageUrl,
        timestamp: new Date()
@@ -251,7 +249,7 @@ function App() {
      
      // Auto-trigger AI response for the image with the updated messages
      setTimeout(() => {
-       handleSendMessageWithContext('What do you see in this image?', updatedMessages);
+       handleSendMessageWithContext('I\'ve shared an image with you.', updatedMessages);
      }, 100);
    }
  };
