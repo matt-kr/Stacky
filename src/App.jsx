@@ -1,14 +1,63 @@
-import { useState, useEffect, useContext } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import ChatInput from './components/ChatInput';
 import MessageList from './components/MessageList';
 
+// ============================================================================
+// CONSTANTS & CONFIGURATION
+// ============================================================================
+
 const API_URL = '/api/reply';
 
-const systemPrompt = "You are a helpful AI assistant.";
+// ============================================================================
+// MAIN APP COMPONENT
+// ============================================================================
 
 function App() {
-  // Image compression function for Android
+
+  // ==========================================================================
+  // STATE MANAGEMENT - UI & NAVIGATION
+  // ==========================================================================
+  
+  const [showGreeting, setShowGreeting] = useState(false);
+  const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
+  const [isHamburgerMenuClosing, setIsHamburgerMenuClosing] = useState(false);
+  const [showPhotoMenu, setShowPhotoMenu] = useState(false);
+  const [isPhotoMenuClosing, setIsPhotoMenuClosing] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // ==========================================================================
+  // STATE MANAGEMENT - CAMERA & PHOTO FUNCTIONALITY
+  // ==========================================================================
+  
+  const [cameraPreview, setCameraPreview] = useState(null); // { imageUrl, file }
+  const [showCameraView, setShowCameraView] = useState(false); // Live camera view
+  const [cameraStream, setCameraStream] = useState(null); // Camera stream
+
+  // ==========================================================================
+  // STATE MANAGEMENT - CHAT FUNCTIONALITY
+  // ==========================================================================
+  
+  // Chat messages with localStorage persistence
+  const [messages, setMessages] = useState(() => {
+    const savedMessages = localStorage.getItem('chatMessages');
+    if (savedMessages) {
+      const parsed = JSON.parse(savedMessages);
+      // Filter out messages with blob URLs to prevent errors
+      return parsed.filter(msg => !msg.image || !msg.image.startsWith('blob:'));
+    }
+    return [];
+  });
+  
+  const [isLoading, setIsLoading] = useState(false); // For loading state
+  const [error, setError] = useState(null); // For API errors
+  const [retryInfo, setRetryInfo] = useState(null); // { attempt, maxRetries, timeoutId }
+
+  // ==========================================================================
+  // UTILITY FUNCTIONS - IMAGE PROCESSING
+  // ==========================================================================
+  
+  // Image compression function to reduce payload size for mobile devices
   const compressImage = (dataUrl, quality = 0.7, maxWidth = 1024) => {
     return new Promise((resolve) => {
       const canvas = document.createElement('canvas');
@@ -16,7 +65,7 @@ function App() {
       const img = new Image();
       
       img.onload = () => {
-        // Calculate new dimensions
+        // Calculate new dimensions maintaining aspect ratio
         let { width, height } = img;
         if (width > maxWidth) {
           height = (height * maxWidth) / width;
@@ -26,7 +75,7 @@ function App() {
         canvas.width = width;
         canvas.height = height;
         
-        // Draw and compress
+        // Draw and compress image
         ctx.drawImage(img, 0, 0, width, height);
         const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
         resolve(compressedDataUrl);
@@ -36,131 +85,261 @@ function App() {
     });
   };
 
- const [showGreeting, setShowGreeting] = useState(false);
- const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
- const [isHamburgerMenuClosing, setIsHamburgerMenuClosing] = useState(false);
- const [showPhotoMenu, setShowPhotoMenu] = useState(false);
- const [isPhotoMenuClosing, setIsPhotoMenuClosing] = useState(false);
- const [soundEnabled, setSoundEnabled] = useState(true);
- const [cameraPreview, setCameraPreview] = useState(null); // { imageUrl, file }
- const [showCameraView, setShowCameraView] = useState(false); // Live camera view
- const [cameraStream, setCameraStream] = useState(null); // Camera stream
- 
- const handleLogoClick = () => {
-   setShowGreeting(true);
-   setTimeout(() => setShowGreeting(false), 2000);
- };
-
- const handleHamburgerClick = () => {
-   if (showHamburgerMenu) {
-     // Start closing animation
-     setIsHamburgerMenuClosing(true);
-     setTimeout(() => {
-       setShowHamburgerMenu(false);
-       setIsHamburgerMenuClosing(false);
-     }, 200); // Match the slideUpOut animation duration
-   } else {
-     setShowHamburgerMenu(true);
-   }
- };
-
- const closeHamburgerMenu = () => {
-   if (showHamburgerMenu) {
-     setIsHamburgerMenuClosing(true);
-     setTimeout(() => {
-       setShowHamburgerMenu(false);
-       setIsHamburgerMenuClosing(false);
-     }, 200);
-   }
- };
-
- const handlePhotoClick = () => {
-   // Check device type
-   const isAndroid = /Android/i.test(navigator.userAgent);
-   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-   const isMobile = isAndroid || isIOS;
-   
-   if (isIOS) {
-     // iOS: directly use native file picker (works perfectly)
-     const fileInput = document.createElement('input');
-     fileInput.type = 'file';
-     fileInput.accept = 'image/*';
-     
-     fileInput.onchange = async (event) => {
-       const file = event.target.files[0];
-       if (file && file.type.startsWith('image/')) {
-         // Convert file to data URL for iOS
-         const reader = new FileReader();
-         reader.onload = async () => {
-           try {
-             // Compress image for iOS too to avoid memory issues
-             const compressedImageUrl = await compressImage(reader.result, 0.7, 1024);
-             sendImageMessage(compressedImageUrl);
-           } catch (error) {
-             console.warn('Image compression failed, using original:', error);
-             sendImageMessage(reader.result);
-           }
-         };
-         reader.readAsDataURL(file);
-       }
-     };
-     fileInput.click();
-     return;
-   }
-
-   // Android or Desktop: show photo menu
-   if (showPhotoMenu) {
-     // Start closing animation
-     setIsPhotoMenuClosing(true);
-     setTimeout(() => {
-       setShowPhotoMenu(false);
-       setIsPhotoMenuClosing(false);
-     }, 200); // Match the slideUpOut animation duration
-   } else {
-     setShowPhotoMenu(true);
-   }
- };
-
-const sendImageMessage = async (fileOrDataUrl) => {
-  let imageUrl;
+  // ==========================================================================
+  // UI INTERACTION HANDLERS - NAVIGATION & MENUS
+  // ==========================================================================
   
-  if (typeof fileOrDataUrl === 'string') {
-    // Already a data URL (from iOS direct upload or camera capture)
-    imageUrl = fileOrDataUrl;
+  // Handle logo click to show greeting
+  const handleLogoClick = () => {
+    setShowGreeting(true);
+    setTimeout(() => setShowGreeting(false), 2000);
+  };
+
+  // Handle hamburger menu toggle with animation
+  const handleHamburgerClick = () => {
+    if (showHamburgerMenu) {
+      setIsHamburgerMenuClosing(true);
+      setTimeout(() => {
+        setShowHamburgerMenu(false);
+        setIsHamburgerMenuClosing(false);
+      }, 200);
+    } else {
+      setShowHamburgerMenu(true);
+    }
+  };
+
+  // Close hamburger menu with animation
+  const closeHamburgerMenu = () => {
+    if (showHamburgerMenu) {
+      setIsHamburgerMenuClosing(true);
+      setTimeout(() => {
+        setShowHamburgerMenu(false);
+        setIsHamburgerMenuClosing(false);
+      }, 200);
+    }
+  };
+
+  // Close photo menu with animation
+  const closePhotoMenu = () => {
+    if (showPhotoMenu) {
+      setIsPhotoMenuClosing(true);
+      setTimeout(() => {
+        setShowPhotoMenu(false);
+        setIsPhotoMenuClosing(false);
+      }, 200);
+    }
+  };
+
+  // ==========================================================================
+  // HAMBURGER MENU ACTION HANDLERS
+  // ==========================================================================
+  
+  // Start a new chat session
+  const handleNewChat = () => {
+    setMessages([]);
+    closeHamburgerMenu();
+  };
+
+  // Open ReturnStack website in new tab
+  const handleGoToWebsite = () => {
+    window.open('https://returnstack.ai/', '_blank');
+    closeHamburgerMenu();
+  };
+
+  // Toggle sound notifications
+  const toggleSound = () => {
+    setSoundEnabled(!soundEnabled);
+    closeHamburgerMenu();
+  };
+
+  // ==========================================================================
+  // PHOTO & CAMERA FUNCTIONALITY - MAIN HANDLERS
+  // ==========================================================================
+  
+  // Handle photo button click - device-specific behavior
+  const handlePhotoClick = () => {
+    // Detect device type for platform-specific handling
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
     
-    // Create a new message with the image
-    const newMessage = {
-      id: Date.now(),
-      text: '',
-      sender: 'user',
-      image: imageUrl,
-      timestamp: new Date()
-    };
-    
-    const updatedMessages = [...messages, newMessage];
-    setMessages(updatedMessages);
-    localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
-    
-    // Auto-trigger AI response for the image with the updated messages
-    setTimeout(() => {
-      handleSendMessageWithContext('I\'ve shared an image with you.', updatedMessages);
-    }, 100);
-  } else {
-    // It's a File object, convert to data URL with compression for Android
-    const reader = new FileReader();
-    reader.onload = async () => {
-      let finalImageUrl = reader.result;
+    if (isIOS) {
+      // iOS: Use native file picker directly (works perfectly with iOS)
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
       
-      // Compress image for Android to avoid JSON parsing issues
+      fileInput.onchange = async (event) => {
+        const file = event.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = async () => {
+            try {
+              // Compress image to avoid memory issues
+              const compressedImageUrl = await compressImage(reader.result, 0.7, 1024);
+              sendImageMessage(compressedImageUrl);
+            } catch (error) {
+              console.warn('Image compression failed, using original:', error);
+              sendImageMessage(reader.result);
+            }
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      fileInput.click();
+      return;
+    }
+
+    // Android or Desktop: Show photo menu with options
+    if (showPhotoMenu) {
+      setIsPhotoMenuClosing(true);
+      setTimeout(() => {
+        setShowPhotoMenu(false);
+        setIsPhotoMenuClosing(false);
+      }, 200);
+    } else {
+      setShowPhotoMenu(true);
+    }
+  };
+
+  // Handle camera capture option from photo menu
+  const handleCameraCapture = async () => {
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isMobile = isAndroid || isIOS;
+    
+    if (isMobile) {
+      // Mobile: Use native camera via file input
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+      fileInput.capture = 'environment'; // Force camera
+      
+      fileInput.onchange = async (event) => {
+        const file = event.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+          await sendImageMessage(file);
+        }
+      };
+      fileInput.click();
+      closePhotoMenu();
+      return;
+    }
+
+    // Desktop: Use custom camera implementation with live preview
+    try {
+      const constraints = {
+        video: {
+          facingMode: 'user',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      setCameraStream(stream);
+      setShowCameraView(true);
+      
+    } catch (error) {
+      console.error('Camera access failed:', error);
+      alert('Camera access failed. Please check permissions and try again.');
+    }
+    closePhotoMenu();
+  };
+
+  // Handle photo upload option from photo menu
+  const handlePhotoUpload = async () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    
+    fileInput.onchange = async (event) => {
+      const file = event.target.files[0];
+      if (file && file.type.startsWith('image/')) {
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+          // Mobile: Send directly
+          await sendImageMessage(file);
+        } else {
+          // Desktop: Show preview first
+          const reader = new FileReader();
+          reader.onload = () => {
+            setCameraPreview({ imageUrl: reader.result, file });
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    };
+    fileInput.click();
+    closePhotoMenu();
+  };
+
+  // ==========================================================================
+  // CAMERA FUNCTIONALITY - DESKTOP LIVE CAPTURE
+  // ==========================================================================
+  
+  // Capture photo from live camera stream
+  const takePicture = () => {
+    if (!cameraStream) return;
+    
+    const video = document.createElement('video');
+    video.srcObject = cameraStream;
+    video.play();
+    
+    video.onloadedmetadata = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      
+      // Capture current frame
+      ctx.drawImage(video, 0, 0);
+      
+      // Convert to blob and create preview
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const file = new File([blob], `camera-capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
+          
+          const reader = new FileReader();
+          reader.onload = () => {
+            setCameraPreview({ imageUrl: reader.result, file });
+            closeCameraView();
+          };
+          reader.readAsDataURL(blob);
+        }
+      }, 'image/jpeg', 0.9);
+    };
+  };
+
+  // Close live camera view and stop stream
+  const closeCameraView = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setShowCameraView(false);
+  };
+
+  // ==========================================================================
+  // PHOTO PREVIEW HANDLERS
+  // ==========================================================================
+  
+  // Confirm and send the captured/selected photo
+  const handleConfirmPhoto = async () => {
+    if (cameraPreview) {
+      let finalImageUrl = cameraPreview.imageUrl;
+      
+      // Compress for Android to avoid JSON parsing issues
       const isAndroid = /Android/i.test(navigator.userAgent);
       if (isAndroid) {
         try {
-          finalImageUrl = await compressImage(reader.result, 0.7, 1024);
+          finalImageUrl = await compressImage(cameraPreview.imageUrl, 0.7, 1024);
         } catch (error) {
           console.warn('Image compression failed, using original:', error);
         }
       }
       
+      // Create and send image message
       const newMessage = {
         id: Date.now(),
         text: '',
@@ -173,285 +352,141 @@ const sendImageMessage = async (fileOrDataUrl) => {
       setMessages(updatedMessages);
       localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
       
-      // Auto-trigger AI response for the image with the updated messages
+      setCameraPreview(null);
+      
+      // Auto-trigger AI response
       setTimeout(() => {
         handleSendMessageWithContext('I\'ve shared an image with you.', updatedMessages);
       }, 100);
-    };
-    reader.readAsDataURL(fileOrDataUrl);
-  }
-}; const closePhotoMenu = () => {
-   if (showPhotoMenu) {
-     setIsPhotoMenuClosing(true);
-     setTimeout(() => {
-       setShowPhotoMenu(false);
-       setIsPhotoMenuClosing(false);
-     }, 200);
-   }
- };
-
- const handleCameraCapture = async () => {
-   // Check device type
-   const isAndroid = /Android/i.test(navigator.userAgent);
-   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-   const isMobile = isAndroid || isIOS;
-   
-   if (isMobile) {
-     // On mobile, use native camera via file input with capture
-     const fileInput = document.createElement('input');
-     fileInput.type = 'file';
-     fileInput.accept = 'image/*';
-     fileInput.capture = 'environment'; // Force camera
-     
-     fileInput.onchange = async (event) => {
-       const file = event.target.files[0];
-       if (file && file.type.startsWith('image/')) {
-         await sendImageMessage(file);
-       }
-     };
-     fileInput.click();
-     closePhotoMenu();
-     return;
-   }
-
-   // Desktop: use our custom camera implementation
-   try {
-     const constraints = {
-       video: {
-         facingMode: 'user', // Front camera/webcam on desktop
-         width: { ideal: 1920 },
-         height: { ideal: 1080 }
-       }
-     };
-
-     // Get camera stream
-     const stream = await navigator.mediaDevices.getUserMedia(constraints);
-     setCameraStream(stream);
-     setShowCameraView(true);
-     
-   } catch (error) {
-     console.error('Camera access failed:', error);
-     alert('Camera access failed. Please check permissions and try again.');
-   }
-   closePhotoMenu();
- };
-
- const handlePhotoUpload = async () => {
-   // Create a hidden file input to trigger file selection
-   const fileInput = document.createElement('input');
-   fileInput.type = 'file';
-   fileInput.accept = 'image/*';
-   // No capture attribute - this will prefer gallery/file picker
-   
-   fileInput.onchange = async (event) => {
-     const file = event.target.files[0];
-     if (file && file.type.startsWith('image/')) {
-       // Check if we're on mobile - if so, send directly
-       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-       if (isMobile) {
-         await sendImageMessage(file);
-       } else {
-         // Desktop: show preview with data URL
-         const reader = new FileReader();
-         reader.onload = () => {
-           setCameraPreview({ imageUrl: reader.result, file });
-         };
-         reader.readAsDataURL(file);
-       }
-     }
-   };
-   fileInput.click();
-   closePhotoMenu();
- }; const takePicture = () => {
-   if (!cameraStream) return;
-   
-   // Create video element to capture frame
-   const video = document.createElement('video');
-   video.srcObject = cameraStream;
-   video.play();
-   
-   // Wait for video to load then capture
-   video.onloadedmetadata = () => {
-     // Create canvas to capture frame
-     const canvas = document.createElement('canvas');
-     canvas.width = video.videoWidth;
-     canvas.height = video.videoHeight;
-     const ctx = canvas.getContext('2d');
-     
-     // Draw current frame to canvas
-     ctx.drawImage(video, 0, 0);
-     
-     // Convert canvas to blob and show preview
-     canvas.toBlob((blob) => {
-       if (blob) {
-         const file = new File([blob], `camera-capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-         
-         // Convert blob to data URL for persistent storage
-         const reader = new FileReader();
-         reader.onload = () => {
-           setCameraPreview({ imageUrl: reader.result, file });
-           closeCameraView();
-         };
-         reader.readAsDataURL(blob);
-       }
-     }, 'image/jpeg', 0.9);
-   };
- };
-
- const closeCameraView = () => {
-   if (cameraStream) {
-     cameraStream.getTracks().forEach(track => track.stop());
-     setCameraStream(null);
-   }
-   setShowCameraView(false);
- };
-
- const handleConfirmPhoto = async () => {
-   if (cameraPreview) {
-     let finalImageUrl = cameraPreview.imageUrl;
-     
-     // Compress image for Android to avoid JSON parsing issues
-     const isAndroid = /Android/i.test(navigator.userAgent);
-     if (isAndroid) {
-       try {
-         finalImageUrl = await compressImage(cameraPreview.imageUrl, 0.7, 1024);
-       } catch (error) {
-         console.warn('Image compression failed, using original:', error);
-       }
-     }
-     
-     // Create a new message with the image
-     const newMessage = {
-       id: Date.now(),
-       text: '',
-       sender: 'user',
-       image: finalImageUrl,
-       timestamp: new Date()
-     };
-     
-     const updatedMessages = [...messages, newMessage];
-     setMessages(updatedMessages);
-     localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
-     
-     // Clean up the preview
-     setCameraPreview(null);
-     
-     // Auto-trigger AI response for the image with the updated messages
-     setTimeout(() => {
-       handleSendMessageWithContext('I\'ve shared an image with you.', updatedMessages);
-     }, 100);
-   }
- };
-
- const handleRetakePhoto = async () => {
-   if (cameraPreview) {
-     // No need to revoke data URLs
-     setCameraPreview(null);
-     
-     // Check device type
-     const isAndroid = /Android/i.test(navigator.userAgent);
-     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-     const isMobile = isAndroid || isIOS;
-     
-     if (isMobile) {
-       // On mobile, use native camera via file input
-       const fileInput = document.createElement('input');
-       fileInput.type = 'file';
-       fileInput.accept = 'image/*';
-       
-       // Android-specific: add capture attribute
-       if (isAndroid) {
-         fileInput.capture = 'camera';
-       }
-       
-       fileInput.onchange = (event) => {
-         const file = event.target.files[0];
-         if (file && file.type.startsWith('image/')) {
-           const reader = new FileReader();
-           reader.onload = () => {
-             setCameraPreview({ imageUrl: reader.result, file });
-           };
-           reader.readAsDataURL(file);
-         }
-       };
-       fileInput.click();
-       return;
-     }
-     
-     // Desktop: restart custom camera for a new photo
-     try {
-       const constraints = {
-         video: {
-           facingMode: 'user', // Front camera/webcam on desktop
-           width: { ideal: 1920 },
-           height: { ideal: 1080 }
-         }
-       };
-
-       // Get camera stream
-       const stream = await navigator.mediaDevices.getUserMedia(constraints);
-       setCameraStream(stream);
-       setShowCameraView(true);
-       
-     } catch (error) {
-       console.error('Camera access failed:', error);
-       alert('Camera access failed. Please check permissions and try again.');
-     }
-   }
- };
-
- const handleNewChat = () => {
-   setMessages([]);
-   closeHamburgerMenu();
- };
-
- const handleGoToWebsite = () => {
-   window.open('https://returnstack.ai/', '_blank');
-   closeHamburgerMenu();
- };
-
- const toggleSound = () => {
-   setSoundEnabled(!soundEnabled);
-   closeHamburgerMenu();
- };
- const [messages, setMessages] = useState(() => { // Array to hold all messages
- const savedMessages = localStorage.getItem('chatMessages');
-    if (savedMessages) {
-      const parsed = JSON.parse(savedMessages);
-      // Filter out messages with blob URLs to prevent errors
-      return parsed.filter(msg => !msg.image || !msg.image.startsWith('blob:'));
     }
-    return [];
-  });
- const [isLoading, setIsLoading] = useState(false); // For loading state
- const [error, setError] = useState(null); // For API errors
- const [retryInfo, setRetryInfo] = useState(null); // { attempt, maxRetries, timeoutId }
-  // useEffect hook to save messages on change 
-  useEffect(() => {
-    // This effect runs whenever the 'messages' array changes
-    localStorage.setItem('chatMessages', JSON.stringify(messages));
-  }, [messages]);
+  };
 
-  // Close menus when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showHamburgerMenu && !event.target.closest('.hamburger-menu-container')) {
-        closeHamburgerMenu();
+  // Retake photo - restart camera or file selection
+  const handleRetakePhoto = async () => {
+    if (cameraPreview) {
+      setCameraPreview(null);
+      
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const isMobile = isAndroid || isIOS;
+      
+      if (isMobile) {
+        // Mobile: Use native camera
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        
+        if (isAndroid) {
+          fileInput.capture = 'camera';
+        }
+        
+        fileInput.onchange = (event) => {
+          const file = event.target.files[0];
+          if (file && file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              setCameraPreview({ imageUrl: reader.result, file });
+            };
+            reader.readAsDataURL(file);
+          }
+        };
+        fileInput.click();
+        return;
       }
-      if (showPhotoMenu && !event.target.closest('.photo-menu-container')) {
-        closePhotoMenu();
+      
+      // Desktop: Restart live camera
+      try {
+        const constraints = {
+          video: {
+            facingMode: 'user',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          }
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        setCameraStream(stream);
+        setShowCameraView(true);
+        
+      } catch (error) {
+        console.error('Camera access failed:', error);
+        alert('Camera access failed. Please check permissions and try again.');
       }
-    };
+    }
+  };
 
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [showHamburgerMenu, showPhotoMenu]);
+  // ==========================================================================
+  // MESSAGE SENDING FUNCTIONALITY
+  // ==========================================================================
+  
+  // Send image message with device-specific handling
+  const sendImageMessage = async (fileOrDataUrl) => {
+    if (typeof fileOrDataUrl === 'string') {
+      // Already a data URL (from iOS or camera capture)
+      const newMessage = {
+        id: Date.now(),
+        text: '',
+        sender: 'user',
+        image: fileOrDataUrl,
+        timestamp: new Date()
+      };
+      
+      const updatedMessages = [...messages, newMessage];
+      setMessages(updatedMessages);
+      localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
+      
+      // Auto-trigger AI response
+      setTimeout(() => {
+        handleSendMessageWithContext('I\'ve shared an image with you.', updatedMessages);
+      }, 100);
+    } else {
+      // File object - convert to data URL with compression
+      const reader = new FileReader();
+      reader.onload = async () => {
+        let finalImageUrl = reader.result;
+        
+        // Compress for Android to avoid JSON parsing issues
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        if (isAndroid) {
+          try {
+            finalImageUrl = await compressImage(reader.result, 0.7, 1024);
+          } catch (error) {
+            console.warn('Image compression failed, using original:', error);
+          }
+        }
+        
+        const newMessage = {
+          id: Date.now(),
+          text: '',
+          sender: 'user',
+          image: finalImageUrl,
+          timestamp: new Date()
+        };
+        
+        const updatedMessages = [...messages, newMessage];
+        setMessages(updatedMessages);
+        localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
+        
+        // Auto-trigger AI response
+        setTimeout(() => {
+          handleSendMessageWithContext('I\'ve shared an image with you.', updatedMessages);
+        }, 100);
+      };
+      reader.readAsDataURL(fileOrDataUrl);
+    }
+  };
 
-const handleSendMessageWithContext = async (text, contextMessages = null, retryCount = 0) => {
+  // ==========================================================================
+  // API COMMUNICATION - MAIN MESSAGE HANDLERS
+  // ==========================================================================
+  
+  // Send message with explicit context (used for image auto-responses)
+  const handleSendMessageWithContext = async (text, contextMessages = null, retryCount = 0) => {
     const maxRetries = 3;
     const baseDelay = 1000;
     const messagesToUse = contextMessages || messages;
 
+    // Add user message on first attempt
     if (retryCount === 0) {
       const userMessage = {
         id: Date.now(),
@@ -466,101 +501,104 @@ const handleSendMessageWithContext = async (text, contextMessages = null, retryC
       setError(null);
     }
 
-    // Check if the last message from user has an image
+    // Prepare request with conversation context
     const currentMessages = retryCount === 0 ? [...messagesToUse, { text, sender: 'user' }] : messagesToUse;
     const lastUserMessage = [...currentMessages].reverse().find(msg => msg.sender === 'user');
     const hasImage = lastUserMessage && lastUserMessage.image;
 
-  try {
-    const requestBody = {
-      message: text,
-      conversationHistory: currentMessages.slice(0, -1) // All messages except the current one
-    };
-
-    // If the last user message has an image, include it
-    if (hasImage) {
-      requestBody.imageData = lastUserMessage.image;
-      
-      // Log payload size for debugging Android issues
-      const payloadSize = JSON.stringify(requestBody).length;
-      console.log('Request payload size:', payloadSize, 'bytes');
-      
-      // Warn if payload is very large (might cause Android issues)
-      if (payloadSize > 5000000) { // 5MB
-        console.warn('Large payload detected, this might cause issues on Android');
-      }
-    }
-
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const responseText = await response.text();
-      console.error('API Error Response:', responseText);
-      
-      let errData;
-      try {
-        errData = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('Failed to parse error response as JSON:', parseError);
-        errData = { error: `HTTP ${response.status}: ${responseText || 'Unknown error'}` };
-      }
-      
-      throw new Error(errData.error || `HTTP error! status: ${response.status}`);
-    }
-
-    const responseText = await response.text();
-    console.log('API Response Text:', responseText);
-    
-    let data;
     try {
-      data = JSON.parse(responseText);
-    } catch (parseError) {
-      console.error('Failed to parse response JSON:', parseError);
-      console.error('Response text:', responseText);
-      throw new Error('Failed to parse AI response - invalid JSON received');
-    }
-    
-    if (!data.reply) {
-      throw new Error('No reply received from AI');
-    }
+      const requestBody = {
+        message: text,
+        conversationHistory: currentMessages.slice(0, -1)
+      };
 
-    const assistantMessage = {
-      id: Date.now() + 1,
-      text: data.reply,
-      sender: 'assistant',
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, assistantMessage]);
-    setRetryInfo(null);
+      // Include image data if present
+      if (hasImage) {
+        requestBody.imageData = lastUserMessage.image;
+        
+        // Log payload size for debugging
+        const payloadSize = JSON.stringify(requestBody).length;
+        console.log('Request payload size:', payloadSize, 'bytes');
+        
+        if (payloadSize > 5000000) { // 5MB warning
+          console.warn('Large payload detected, this might cause issues on Android');
+        }
+      }
 
-  } catch (err) {
-    if (retryCount < maxRetries) {
-      const delay = baseDelay * Math.pow(2, retryCount);
-      const timeoutId = setTimeout(() => {
-        handleSendMessageWithContext(text, contextMessages, retryCount + 1);
-      }, delay);
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const responseText = await response.text();
+        console.error('API Error Response:', responseText);
+        
+        let errData;
+        try {
+          errData = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('Failed to parse error response as JSON:', parseError);
+          errData = { error: `HTTP ${response.status}: ${responseText || 'Unknown error'}` };
+        }
+        
+        throw new Error(errData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const responseText = await response.text();
+      console.log('API Response Text:', responseText);
       
-      setRetryInfo({ attempt: retryCount + 1, maxRetries, timeoutId });
-      return;
-    }
-    
-    setError(err.message);
-    setRetryInfo(null);
-  } finally {
-    if (retryCount >= maxRetries || retryCount === 0) {
-      setIsLoading(false);
-    }
-  }
-};
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse response JSON:', parseError);
+        console.error('Response text:', responseText);
+        throw new Error('Failed to parse AI response - invalid JSON received');
+      }
+      
+      if (!data.reply) {
+        throw new Error('No reply received from AI');
+      }
 
-const handleSendMessage = async (text, retryCount = 0) => {
+      // Add AI response to messages
+      const assistantMessage = {
+        id: Date.now() + 1,
+        text: data.reply,
+        sender: 'assistant',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+      setRetryInfo(null);
+
+    } catch (err) {
+      // Handle retries with exponential backoff
+      if (retryCount < maxRetries) {
+        const delay = baseDelay * Math.pow(2, retryCount);
+        const timeoutId = setTimeout(() => {
+          handleSendMessageWithContext(text, contextMessages, retryCount + 1);
+        }, delay);
+        
+        setRetryInfo({ attempt: retryCount + 1, maxRetries, timeoutId });
+        return;
+      }
+      
+      setError(err.message);
+      setRetryInfo(null);
+    } finally {
+      if (retryCount >= maxRetries || retryCount === 0) {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  // Standard message handler (used by ChatInput component)
+  const handleSendMessage = async (text, retryCount = 0) => {
     const maxRetries = 3;
     const baseDelay = 1000;
 
+    // Add user message on first attempt
     if (retryCount === 0) {
       const userMessage = {
         id: Date.now(),
@@ -575,74 +613,105 @@ const handleSendMessage = async (text, retryCount = 0) => {
       setError(null);
     }
 
-    // Check if the last message from user has an image
+    // Prepare request
     const currentMessages = retryCount === 0 ? [...messages, { text, sender: 'user' }] : messages;
     const lastUserMessage = [...currentMessages].reverse().find(msg => msg.sender === 'user');
     const hasImage = lastUserMessage && lastUserMessage.image;
 
-  try {
-    const requestBody = {
-      message: text,
-      conversationHistory: currentMessages.slice(0, -1) // All messages except the current one
-    };
+    try {
+      const requestBody = {
+        message: text,
+        conversationHistory: currentMessages.slice(0, -1)
+      };
 
-    // If the last user message has an image, include it
-    if (hasImage) {
-      requestBody.imageData = lastUserMessage.image;
-    }
+      if (hasImage) {
+        requestBody.imageData = lastUserMessage.image;
+      }
 
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({ error: 'Failed to parse error JSON' }));
-      throw new Error(errData.error || `HTTP error! status: ${response.status}`);
-    }
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ error: 'Failed to parse error JSON' }));
+        throw new Error(errData.error || `HTTP error! status: ${response.status}`);
+      }
 
-    const data = await response.json();
-    const assistantMessage = {
-      id: Date.now() + 1,
-      text: data.reply,
-      sender: 'assistant',
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, assistantMessage]);
-    setRetryInfo(null);
+      const data = await response.json();
+      const assistantMessage = {
+        id: Date.now() + 1,
+        text: data.reply,
+        sender: 'assistant',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+      setRetryInfo(null);
 
-  } catch (err) {
-    if (retryCount < maxRetries) {
-      const delay = baseDelay * Math.pow(2, retryCount);
-      const timeoutId = setTimeout(() => {
-        handleSendMessage(text, retryCount + 1);
-      }, delay);
+    } catch (err) {
+      // Handle retries
+      if (retryCount < maxRetries) {
+        const delay = baseDelay * Math.pow(2, retryCount);
+        const timeoutId = setTimeout(() => {
+          handleSendMessage(text, retryCount + 1);
+        }, delay);
+        
+        setRetryInfo({ attempt: retryCount + 1, maxRetries, timeoutId });
+        return;
+      }
       
-      setRetryInfo({ attempt: retryCount + 1, maxRetries, timeoutId });
-      return;
+      setError(err.message);
+      setRetryInfo(null);
+    } finally {
+      if (retryCount >= maxRetries || retryCount === 0) {
+        setIsLoading(false);
+      }
     }
-    
-    setError(err.message);
-    setRetryInfo(null);
-  } finally {
-    if (retryCount >= maxRetries || retryCount === 0) {
+  };
+
+  // Cancel ongoing retry
+  const cancelRetry = () => {
+    if (retryInfo?.timeoutId) {
+      clearTimeout(retryInfo.timeoutId);
+      setRetryInfo(null);
       setIsLoading(false);
     }
-  }
-};
+  };
 
-const cancelRetry = () => {
-  if (retryInfo?.timeoutId) {
-    clearTimeout(retryInfo.timeoutId);
-    setRetryInfo(null);
-    setIsLoading(false);
-  }
-};
+  // ==========================================================================
+  // SIDE EFFECTS & LIFECYCLE
+  // ==========================================================================
+  
+  // Persist messages to localStorage when messages change
+  useEffect(() => {
+    localStorage.setItem('chatMessages', JSON.stringify(messages));
+  }, [messages]);
+
+  // Handle clicks outside menus to close them
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showHamburgerMenu && !event.target.closest('.hamburger-menu-container')) {
+        closeHamburgerMenu();
+      }
+      if (showPhotoMenu && !event.target.closest('.photo-menu-container')) {
+        closePhotoMenu();
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showHamburgerMenu, showPhotoMenu]);
+
+  // ==========================================================================
+  // RENDER
+  // ==========================================================================
 
   return (
-   <div className="chatbot-container">
+    <div className="chatbot-container">
+      {/* Header with navigation */}
       <header className="chat-header" style={{position: 'sticky', top: 0, zIndex: 10, background: 'var(--container-bg)'}}>
+        {/* Hamburger Menu */}
         <div className="hamburger-menu-container" style={{position: 'relative'}}>
           <button className={`hamburger-button ${showHamburgerMenu ? 'open' : ''}`} onClick={handleHamburgerClick}>
             <span></span>
@@ -660,7 +729,11 @@ const cancelRetry = () => {
             </div>
           )}
         </div>
+        
+        {/* App Title */}
         <h1>ReturnStacky</h1>
+        
+        {/* Logo with Greeting */}
         <div style={{position: 'relative', display: 'inline-block'}}>
           <img src="/Stacky.png" alt="Stacky Logo" className="header-logo" style={{cursor: 'pointer'}} onClick={handleLogoClick} />
           {showGreeting && (
@@ -668,73 +741,80 @@ const cancelRetry = () => {
           )}
         </div>
       </header>
-       <MessageList messages={messages} isLoading={isLoading} />
-       <ChatInput 
-         onSendMessage={handleSendMessage} 
-         isLoading={isLoading}
-         showPhotoMenu={showPhotoMenu}
-         isPhotoMenuClosing={isPhotoMenuClosing}
-         onPhotoClick={handlePhotoClick}
-         onPhotoUpload={handlePhotoUpload}
-         onCameraCapture={handleCameraCapture}
-       />
-       {retryInfo && (
-         <div className="retry-info">
-           Retrying... (attempt {retryInfo.attempt}/{retryInfo.maxRetries})
-           <button onClick={cancelRetry}>Cancel</button>
-         </div>
-       )}
-       {error && <p className="error-message">{error}</p>}
-       
-       {/* Live Camera View */}
-       {showCameraView && (
-         <div className="camera-view-overlay">
-           <div className="camera-view-container">
-             <video 
-               ref={(video) => {
-                 if (video && cameraStream) {
-                   video.srcObject = cameraStream;
-                   video.play();
-                 }
-               }}
-               className="camera-video"
-               autoPlay
-               playsInline
-               muted
-             />
-             <div className="camera-controls">
-               <button className="camera-close-btn" onClick={closeCameraView}>
-                 ✕ Close
-               </button>
-               <button className="camera-capture-btn" onClick={takePicture}>
-                 📸 Capture
-               </button>
-             </div>
-           </div>
-         </div>
-       )}
-       
-       {/* Camera Preview Modal */}
-       {cameraPreview && (
-         <div className="camera-preview-overlay">
-           <div className="camera-preview-modal">
-             <div className="camera-preview-header">
-               <h3>Photo Preview</h3>
-             </div>
-             <div className="camera-preview-image">
-               <img src={cameraPreview.imageUrl} alt="Camera capture preview" />
-             </div>
-             <div className="camera-preview-actions">
-               <button className="retake-btn" onClick={handleRetakePhoto}>
-                 🔄 Retake
-               </button>
-               <button className="confirm-btn" onClick={handleConfirmPhoto}>
-                 ✓ Use Photo
-               </button>
-             </div>
-           </div>
-         </div>
-       )}
+
+      {/* Main Chat Interface */}
+      <MessageList messages={messages} isLoading={isLoading} />
+      
+      <ChatInput 
+        onSendMessage={handleSendMessage} 
+        isLoading={isLoading}
+        showPhotoMenu={showPhotoMenu}
+        isPhotoMenuClosing={isPhotoMenuClosing}
+        onPhotoClick={handlePhotoClick}
+        onPhotoUpload={handlePhotoUpload}
+        onCameraCapture={handleCameraCapture}
+      />
+
+      {/* Retry Information */}
+      {retryInfo && (
+        <div className="retry-info">
+          Retrying... (attempt {retryInfo.attempt}/{retryInfo.maxRetries})
+          <button onClick={cancelRetry}>Cancel</button>
+        </div>
+      )}
+
+      {/* Error Display */}
+      {error && <p className="error-message">{error}</p>}
+      
+      {/* Live Camera View Modal */}
+      {showCameraView && (
+        <div className="camera-view-overlay">
+          <div className="camera-view-container">
+            <video 
+              ref={(video) => {
+                if (video && cameraStream) {
+                  video.srcObject = cameraStream;
+                  video.play();
+                }
+              }}
+              className="camera-video"
+              autoPlay
+              playsInline
+              muted
+            />
+            <div className="camera-controls">
+              <button className="camera-close-btn" onClick={closeCameraView}>
+                ✕ Close
+              </button>
+              <button className="camera-capture-btn" onClick={takePicture}>
+                📸 Capture
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Photo Preview Modal */}
+      {cameraPreview && (
+        <div className="camera-preview-overlay">
+          <div className="camera-preview-modal">
+            <div className="camera-preview-header">
+              <h3>Photo Preview</h3>
+            </div>
+            <div className="camera-preview-image">
+              <img src={cameraPreview.imageUrl} alt="Camera capture preview" />
+            </div>
+            <div className="camera-preview-actions">
+              <button className="retake-btn" onClick={handleRetakePhoto}>
+                🔄 Retake
+              </button>
+              <button className="confirm-btn" onClick={handleConfirmPhoto}>
+                ✓ Use Photo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
