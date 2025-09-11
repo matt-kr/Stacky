@@ -95,8 +95,7 @@ function App() {
     const savedMessages = localStorage.getItem('chatMessages');
     if (savedMessages) {
       const parsed = JSON.parse(savedMessages);
-      // Filter out messages with blob URLs to prevent errors
-      return parsed.filter(msg => !msg.image || !msg.image.startsWith('blob:'));
+      return parsed;
     }
     return [];
   });
@@ -135,6 +134,29 @@ function App() {
       
       img.src = dataUrl;
     });
+  };
+
+  // Safe localStorage function to handle quota exceeded errors
+  const safeSaveMessages = (messages) => {
+    try {
+      localStorage.setItem('chatMessages', JSON.stringify(messages));
+    } catch (error) {
+      if (error.name === 'QuotaExceededError') {
+        console.warn('localStorage quota exceeded, cleaning up old image data');
+        // Keep only the last 10 messages and remove image data from older ones
+        const recentMessages = messages.slice(-10).map(msg => 
+          msg.image ? { ...msg, image: null } : msg
+        );
+        try {
+          localStorage.setItem('chatMessages', JSON.stringify(recentMessages));
+        } catch (secondError) {
+          console.warn('Could not save even reduced messages, clearing localStorage');
+          localStorage.removeItem('chatMessages');
+        }
+      } else {
+        console.error('Error saving messages to localStorage:', error);
+      }
+    }
   };
 
   // ==========================================================================
@@ -632,7 +654,7 @@ function App() {
       
       const updatedMessages = [...messages, newMessage];
       setMessages(updatedMessages);
-      localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
+      safeSaveMessages(updatedMessages);
       
       setCameraPreview(null);
       
@@ -715,7 +737,7 @@ function App() {
       
       const updatedMessages = [...messages, newMessage];
       setMessages(updatedMessages);
-      localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
+      safeSaveMessages(updatedMessages);
       
       // Auto-trigger AI response
       setTimeout(() => {
@@ -747,7 +769,7 @@ function App() {
         
         const updatedMessages = [...messages, newMessage];
         setMessages(updatedMessages);
-        localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
+        safeSaveMessages(updatedMessages);
         
         // Auto-trigger AI response
         setTimeout(() => {
@@ -768,8 +790,8 @@ function App() {
     const baseDelay = 1000;
     const messagesToUse = contextMessages || messages;
 
-    // Add user message on first attempt
-    if (retryCount === 0) {
+    // Add user message on first attempt (only if not using contextMessages)
+    if (retryCount === 0 && !contextMessages) {
       const userMessage = {
         id: Date.now(),
         text,
@@ -779,6 +801,10 @@ function App() {
       
       const updatedMessages = [...messagesToUse, userMessage];
       setMessages(updatedMessages);
+      setIsLoading(true);
+      setError(null);
+    } else if (retryCount === 0 && contextMessages) {
+      // When using contextMessages, just set loading state
       setIsLoading(true);
       setError(null);
     }
@@ -843,10 +869,10 @@ function App() {
       }
 
       // Customer Returns API returns both messages in one response
-      const updatedMessages = [...(retryCount === 0 ? messages : messages.slice(0, -1))];
+      const updatedMessages = [...(retryCount === 0 ? messagesToUse : messagesToUse.slice(0, -1))];
       
-      // Add user message (if not already added)
-      if (retryCount === 0) {
+      // Add user message (if not already added via contextMessages)
+      if (retryCount === 0 && !contextMessages) {
         updatedMessages.push({
           id: Date.now(),
           text,
@@ -869,7 +895,7 @@ function App() {
       }
 
       setMessages(updatedMessages);
-      localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
+      safeSaveMessages(updatedMessages);
       setRetryInfo(null);
 
     } catch (err) {
@@ -1001,7 +1027,7 @@ function App() {
       }
 
       setMessages(finalMessages);
-      localStorage.setItem('chatMessages', JSON.stringify(finalMessages));
+      safeSaveMessages(finalMessages);
       setRetryInfo(null);
 
     } catch (err) {
@@ -1053,7 +1079,7 @@ function App() {
   
   // Persist messages to localStorage when messages change
   useEffect(() => {
-    localStorage.setItem('chatMessages', JSON.stringify(messages));
+    safeSaveMessages(messages);
   }, [messages]);
 
   // Load existing session on component mount
