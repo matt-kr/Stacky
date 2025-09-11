@@ -1,5 +1,5 @@
 export default function Message({ message }) {
-  // The 'message' prop will have { text, sender, timestamp, image? }
+  // The 'message' prop will have { text, sender, timestamp, image?, structured_questions?, next_steps? }
   const isUser = message.sender === 'user';
   const senderName = isUser ? 'You' : (
     <span style={{display: 'inline-flex', alignItems: 'center', gap: '0.1em'}}>
@@ -28,6 +28,51 @@ export default function Message({ message }) {
             </div>
           )}
           <p className="message-text">{message.text}</p>
+          
+          {/* Display structured questions if present */}
+          {message.structured_questions && message.structured_questions.length > 0 && (
+            <div className="structured-questions" style={{
+              marginTop: '0.75rem',
+              padding: '0.75rem',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.2)'
+            }}>
+              <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                Please provide:
+              </p>
+              <ul style={{ margin: '0', paddingLeft: '1rem', fontSize: '0.9rem' }}>
+                {message.structured_questions.map((question, index) => (
+                  <li key={index} style={{ marginBottom: '0.25rem' }}>
+                    {question}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          {/* Display next steps if present */}
+          {message.next_steps && message.next_steps.length > 0 && (
+            <div className="next-steps" style={{
+              marginTop: '0.75rem',
+              padding: '0.75rem',
+              backgroundColor: 'rgba(0, 255, 0, 0.1)',
+              borderRadius: '8px',
+              border: '1px solid rgba(0, 255, 0, 0.3)'
+            }}>
+              <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                Next Steps:
+              </p>
+              <ol style={{ margin: '0', paddingLeft: '1rem', fontSize: '0.9rem' }}>
+                {message.next_steps.map((step, index) => (
+                  <li key={index} style={{ marginBottom: '0.25rem' }}>
+                    {step}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          
           <span className="message-timestamp">
             {new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
           </span>

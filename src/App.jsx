@@ -636,78 +636,96 @@ function App() {
       setError(null);
     }
 
-    // Prepare request with conversation context
-    const currentMessages = retryCount === 0 ? [...messagesToUse, { text, sender: 'user' }] : messagesToUse;
-    const lastUserMessage = [...currentMessages].reverse().find(msg => msg.sender === 'user');
-    const hasImage = lastUserMessage && lastUserMessage.image;
-
     try {
-      const requestBody = {
-        message: text,
-        conversationHistory: currentMessages.slice(0, -1)
-      };
-
-      // Include image data if present
-      if (hasImage) {
-        requestBody.imageData = lastUserMessage.image;
-        
-        // Log payload size for debugging
-        const payloadSize = JSON.stringify(requestBody).length;
-        console.log('Request payload size:', payloadSize, 'bytes');
-        
-        if (payloadSize > 5000000) { // 5MB warning
-          console.warn('Large payload detected, this might cause issues on Android');
+      // Initialize session if needed
+      if (!sessionId) {
+        setSessionStatus('initializing');
+        const sessionData = await createReturnSession(customerId);
+        if (sessionData) {
+          setSessionId(sessionData.session_id);
+          setCurrentStep(sessionData.current_step);
+          setCustomerInfo(sessionData.customer_info || {});
+          setSessionStatus('active');
+          
+          // Save session to localStorage
+          localStorage.setItem('returnSessionId', sessionData.session_id);
+          localStorage.setItem('currentStep', sessionData.current_step);
+          localStorage.setItem('customerInfo', JSON.stringify(sessionData.customer_info || {}));
+        } else {
+          setSessionStatus('error');
+          throw new Error('Failed to create return session');
         }
       }
 
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const responseText = await response.text();
-        console.error('API Error Response:', responseText);
-        
-        let errData;
+      // Handle image uploads to S3 if present
+      const currentMessages = retryCount === 0 ? [...messagesToUse, { text, sender: 'user' }] : messagesToUse;
+      const lastUserMessage = [...currentMessages].reverse().find(msg => msg.sender === 'user');
+      let imageUrl = null;
+      
+      if (lastUserMessage && lastUserMessage.image) {
         try {
-          errData = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error('Failed to parse error response as JSON:', parseError);
-          errData = { error: `HTTP ${response.status}: ${responseText || 'Unknown error'}` };
+          const uploadResult = await uploadReturnPhoto(sessionId, lastUserMessage.image);
+          if (uploadResult && uploadResult.photo_url) {
+            imageUrl = uploadResult.photo_url;
+            console.log('Image uploaded to S3:', imageUrl);
+          }
+        } catch (uploadError) {
+          console.error('Failed to upload image:', uploadError);
+          // Continue without image if upload fails
         }
-        
-        throw new Error(errData.error || `HTTP error! status: ${response.status}`);
       }
 
-      const responseText = await response.text();
-      console.log('API Response Text:', responseText);
+      // Send message to Customer Returns API
+      const apiResponse = await sendReturnMessage(sessionId, text, imageUrl);
       
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('Failed to parse response JSON:', parseError);
-        console.error('Response text:', responseText);
-        throw new Error('Failed to parse AI response - invalid JSON received');
-      }
-      
-      if (!data.reply) {
-        throw new Error('No reply received from AI');
+      if (!apiResponse) {
+        throw new Error('No response received from Customer Returns API');
       }
 
-      // Add AI response to messages
-      const assistantMessage = {
-        id: Date.now() + 1,
-        text: data.reply,
-        sender: 'assistant',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, assistantMessage]);
+      // Update session state from response
+      if (apiResponse.current_step) {
+        setCurrentStep(apiResponse.current_step);
+        localStorage.setItem('currentStep', apiResponse.current_step);
+      }
+      
+      if (apiResponse.customer_info) {
+        setCustomerInfo(apiResponse.customer_info);
+        localStorage.setItem('customerInfo', JSON.stringify(apiResponse.customer_info));
+      }
+
+      // Customer Returns API returns both messages in one response
+      const updatedMessages = [...(retryCount === 0 ? messages : messages.slice(0, -1))];
+      
+      // Add user message (if not already added)
+      if (retryCount === 0) {
+        updatedMessages.push({
+          id: Date.now(),
+          text,
+          sender: 'user',
+          timestamp: new Date(),
+          image: lastUserMessage?.image || null
+        });
+      }
+
+      // Add bot response
+      if (apiResponse.bot_response) {
+        updatedMessages.push({
+          id: Date.now() + 1,
+          text: apiResponse.bot_response,
+          sender: 'assistant',
+          timestamp: new Date(),
+          structured_questions: apiResponse.structured_questions || null,
+          next_steps: apiResponse.next_steps || null
+        });
+      }
+
+      setMessages(updatedMessages);
+      localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
       setRetryInfo(null);
 
     } catch (err) {
+      console.error('Customer Returns API Error:', err);
+      
       // Handle retries with exponential backoff
       if (retryCount < maxRetries) {
         const delay = baseDelay * Math.pow(2, retryCount);
@@ -719,7 +737,7 @@ function App() {
         return;
       }
       
-      setError(err.message);
+      setError(`Customer Returns API: ${err.message}`);
       setRetryInfo(null);
     } finally {
       if (retryCount >= maxRetries || retryCount === 0) {
@@ -748,43 +766,96 @@ function App() {
       setError(null);
     }
 
-    // Prepare request
-    const currentMessages = retryCount === 0 ? [...messages, { text, sender: 'user' }] : messages;
-    const lastUserMessage = [...currentMessages].reverse().find(msg => msg.sender === 'user');
-    const hasImage = lastUserMessage && lastUserMessage.image;
-
     try {
-      const requestBody = {
-        message: text,
-        conversationHistory: currentMessages.slice(0, -1)
-      };
-
-      if (hasImage) {
-        requestBody.imageData = lastUserMessage.image;
+      // Initialize session if needed
+      if (!sessionId) {
+        setSessionStatus('initializing');
+        const sessionData = await createReturnSession(customerId);
+        if (sessionData) {
+          setSessionId(sessionData.session_id);
+          setCurrentStep(sessionData.current_step);
+          setCustomerInfo(sessionData.customer_info || {});
+          setSessionStatus('active');
+          
+          // Save session to localStorage
+          localStorage.setItem('returnSessionId', sessionData.session_id);
+          localStorage.setItem('currentStep', sessionData.current_step);
+          localStorage.setItem('customerInfo', JSON.stringify(sessionData.customer_info || {}));
+        } else {
+          setSessionStatus('error');
+          throw new Error('Failed to create return session');
+        }
       }
 
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({ error: 'Failed to parse error JSON' }));
-        throw new Error(errData.error || `HTTP error! status: ${response.status}`);
+      // Handle image uploads to S3 if present
+      const currentMessages = retryCount === 0 ? [...messages, { text, sender: 'user' }] : messages;
+      const lastUserMessage = [...currentMessages].reverse().find(msg => msg.sender === 'user');
+      let imageUrl = null;
+      
+      if (lastUserMessage && lastUserMessage.image) {
+        try {
+          const uploadResult = await uploadReturnPhoto(sessionId, lastUserMessage.image);
+          if (uploadResult && uploadResult.photo_url) {
+            imageUrl = uploadResult.photo_url;
+            console.log('Image uploaded to S3:', imageUrl);
+          }
+        } catch (uploadError) {
+          console.error('Failed to upload image:', uploadError);
+          // Continue without image if upload fails
+        }
       }
 
-      const data = await response.json();
-      const assistantMessage = {
-        id: Date.now() + 1,
-        text: data.reply,
-        sender: 'assistant',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, assistantMessage]);
+      // Send message to Customer Returns API
+      const apiResponse = await sendReturnMessage(sessionId, text, imageUrl);
+      
+      if (!apiResponse) {
+        throw new Error('No response received from Customer Returns API');
+      }
+
+      // Update session state from response
+      if (apiResponse.current_step) {
+        setCurrentStep(apiResponse.current_step);
+        localStorage.setItem('currentStep', apiResponse.current_step);
+      }
+      
+      if (apiResponse.customer_info) {
+        setCustomerInfo(apiResponse.customer_info);
+        localStorage.setItem('customerInfo', JSON.stringify(apiResponse.customer_info));
+      }
+
+      // Customer Returns API returns both messages in one response
+      const finalMessages = [...(retryCount === 0 ? messages : messages.slice(0, -1))];
+      
+      // Add user message (if not already added)
+      if (retryCount === 0) {
+        finalMessages.push({
+          id: Date.now(),
+          text,
+          sender: 'user',
+          timestamp: new Date(),
+          image: lastUserMessage?.image || null
+        });
+      }
+
+      // Add bot response
+      if (apiResponse.bot_response) {
+        finalMessages.push({
+          id: Date.now() + 1,
+          text: apiResponse.bot_response,
+          sender: 'assistant',
+          timestamp: new Date(),
+          structured_questions: apiResponse.structured_questions || null,
+          next_steps: apiResponse.next_steps || null
+        });
+      }
+
+      setMessages(finalMessages);
+      localStorage.setItem('chatMessages', JSON.stringify(finalMessages));
       setRetryInfo(null);
 
     } catch (err) {
+      console.error('Customer Returns API Error:', err);
+      
       // Handle retries
       if (retryCount < maxRetries) {
         const delay = baseDelay * Math.pow(2, retryCount);
@@ -796,7 +867,7 @@ function App() {
         return;
       }
       
-      setError(err.message);
+      setError(`Customer Returns API: ${err.message}`);
       setRetryInfo(null);
     } finally {
       if (retryCount >= maxRetries || retryCount === 0) {
@@ -948,6 +1019,36 @@ function App() {
 
       {/* Error Display */}
       {error && <p className="error-message">{error}</p>}
+
+      {/* Session Status Display */}
+      {sessionStatus === 'initializing' && (
+        <div className="session-status" style={{
+          padding: '0.75rem',
+          margin: '0.5rem',
+          backgroundColor: 'rgba(0, 123, 255, 0.1)',
+          border: '1px solid rgba(0, 123, 255, 0.3)',
+          borderRadius: '8px',
+          textAlign: 'center',
+          fontSize: '0.9rem'
+        }}>
+          🔄 Initializing return session...
+        </div>
+      )}
+      
+      {sessionId && currentStep && (
+        <div className="session-info" style={{
+          padding: '0.5rem',
+          margin: '0.5rem',
+          backgroundColor: 'rgba(0, 255, 0, 0.05)',
+          border: '1px solid rgba(0, 255, 0, 0.2)',
+          borderRadius: '6px',
+          fontSize: '0.8rem',
+          color: 'rgba(255, 255, 255, 0.7)',
+          textAlign: 'center'
+        }}>
+          Session active - Step: {currentStep}
+        </div>
+      )}
       
       {/* Live Camera View Modal */}
       {showCameraView && (
