@@ -64,12 +64,27 @@ function App() {
   const [currentStep, setCurrentStep] = useState('session_setup');
   const [customerInfo, setCustomerInfo] = useState(() => {
     const saved = localStorage.getItem('customerInfo');
-    return saved ? JSON.parse(saved) : { 
+    // Always use fresh default values for development
+    const defaultInfo = { 
       name: 'John Doe', 
       email: 'john@example.com', 
       phone: '+1-555-0123', 
       order_id: 'ORDER_12345' 
     };
+    
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // If any required fields are empty, use defaults
+      if (!parsed.order_id || !parsed.name) {
+        console.log('Using default customer info due to missing required fields');
+        localStorage.setItem('customerInfo', JSON.stringify(defaultInfo));
+        return defaultInfo;
+      }
+      return parsed;
+    }
+    
+    localStorage.setItem('customerInfo', JSON.stringify(defaultInfo));
+    return defaultInfo;
   });
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [sessionStatus, setSessionStatus] = useState('inactive'); // inactive, active, completed
@@ -1033,6 +1048,26 @@ function App() {
   // Load existing session on component mount
   useEffect(() => {
     const loadExistingSession = async () => {
+      // For development: Clear any invalid customer info
+      const savedCustomerInfo = localStorage.getItem('customerInfo');
+      if (savedCustomerInfo) {
+        const parsed = JSON.parse(savedCustomerInfo);
+        if (!parsed.order_id || !parsed.name || parsed.order_id === '' || parsed.name === '') {
+          console.log('Clearing invalid customer info from localStorage');
+          localStorage.removeItem('customerInfo');
+          localStorage.removeItem('returnSessionId');
+          localStorage.removeItem('chatMessages');
+          // Trigger a component refresh by setting fresh default values
+          setCustomerInfo({ 
+            name: 'John Doe', 
+            email: 'john@example.com', 
+            phone: '+1-555-0123', 
+            order_id: 'ORDER_12345' 
+          });
+          return;
+        }
+      }
+
       const savedSessionId = localStorage.getItem('returnSessionId');
       if (savedSessionId) {
         try {
