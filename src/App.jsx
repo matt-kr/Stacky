@@ -59,7 +59,8 @@ function App() {
   
   // Session Management for Customer Returns API
   const [sessionId, setSessionId] = useState(() => {
-    return localStorage.getItem('returnSessionId') || null;
+    const saved = localStorage.getItem('returnSessionId');
+    return (saved && saved !== 'null' && saved !== 'undefined') ? saved : null;
   });
   const [currentStep, setCurrentStep] = useState('session_setup');
   const [customerInfo, setCustomerInfo] = useState(() => {
@@ -188,6 +189,7 @@ function App() {
       }
 
       const data = await response.json();
+      console.log('Session creation response:', data);
       return data;
     } catch (error) {
       console.error('Error creating return session:', error);
@@ -301,6 +303,11 @@ function App() {
   // Get session details and status
   const getSessionDetails = async (sessionId) => {
     try {
+      // Validate sessionId
+      if (!sessionId || sessionId === 'null' || sessionId === 'undefined') {
+        throw new Error('Invalid session ID format');
+      }
+
       // Development mode - return mock response
       if (DEVELOPMENT_MODE) {
         console.log('Development Mode: Getting mock session details');
@@ -777,20 +784,22 @@ function App() {
     }
 
     try {
-      // Initialize session if needed
+      // Initialize session if needed and capture the session ID
+      let currentSessionId = sessionId;
       if (!sessionId) {
         setSessionStatus('initializing');
         const sessionData = await createReturnSession(customerInfo);
-        if (sessionData) {
-          setSessionId(sessionData.session_id);
-          setCurrentStep(sessionData.current_step);
-          setCustomerInfo(sessionData.customer_info || {});
+        if (sessionData && sessionData.success && sessionData.data) {
+          currentSessionId = sessionData.data.session_id;
+          setSessionId(currentSessionId);
+          setCurrentStep(sessionData.data.current_step);
+          setCustomerInfo(sessionData.data.customer_info || {});
           setSessionStatus('active');
           
           // Save session to localStorage
-          localStorage.setItem('returnSessionId', sessionData.session_id);
-          localStorage.setItem('currentStep', sessionData.current_step);
-          localStorage.setItem('customerInfo', JSON.stringify(sessionData.customer_info || {}));
+          localStorage.setItem('returnSessionId', currentSessionId);
+          localStorage.setItem('currentStep', sessionData.data.current_step);
+          localStorage.setItem('customerInfo', JSON.stringify(sessionData.data.customer_info || {}));
         } else {
           setSessionStatus('error');
           throw new Error('Failed to create return session');
@@ -804,7 +813,7 @@ function App() {
       
       if (lastUserMessage && lastUserMessage.image) {
         try {
-          const uploadResult = await uploadReturnPhoto(sessionId, lastUserMessage.image);
+          const uploadResult = await uploadReturnPhoto(currentSessionId, lastUserMessage.image);
           if (uploadResult && uploadResult.photo_url) {
             imageUrl = uploadResult.photo_url;
             console.log('Image uploaded to S3:', imageUrl);
@@ -816,7 +825,7 @@ function App() {
       }
 
       // Send message to Customer Returns API
-      const apiResponse = await sendReturnMessage(sessionId, text, imageUrl);
+      const apiResponse = await sendReturnMessage(currentSessionId, text, imageUrl);
       
       if (!apiResponse) {
         throw new Error('No response received from Customer Returns API');
@@ -851,7 +860,7 @@ function App() {
       if (apiResponse.bot_response) {
         updatedMessages.push({
           id: Date.now() + 1,
-          text: apiResponse.bot_response,
+          text: apiResponse.bot_response.message,
           sender: 'assistant',
           timestamp: new Date(),
           structured_questions: apiResponse.structured_questions || null,
@@ -907,20 +916,22 @@ function App() {
     }
 
     try {
-      // Initialize session if needed
+      // Initialize session if needed and capture the session ID
+      let currentSessionId = sessionId;
       if (!sessionId) {
         setSessionStatus('initializing');
         const sessionData = await createReturnSession(customerInfo);
-        if (sessionData) {
-          setSessionId(sessionData.session_id);
-          setCurrentStep(sessionData.current_step);
-          setCustomerInfo(sessionData.customer_info || {});
+        if (sessionData && sessionData.success && sessionData.data) {
+          currentSessionId = sessionData.data.session_id;
+          setSessionId(currentSessionId);
+          setCurrentStep(sessionData.data.current_step);
+          setCustomerInfo(sessionData.data.customer_info || {});
           setSessionStatus('active');
           
           // Save session to localStorage
-          localStorage.setItem('returnSessionId', sessionData.session_id);
-          localStorage.setItem('currentStep', sessionData.current_step);
-          localStorage.setItem('customerInfo', JSON.stringify(sessionData.customer_info || {}));
+          localStorage.setItem('returnSessionId', currentSessionId);
+          localStorage.setItem('currentStep', sessionData.data.current_step);
+          localStorage.setItem('customerInfo', JSON.stringify(sessionData.data.customer_info || {}));
         } else {
           setSessionStatus('error');
           throw new Error('Failed to create return session');
@@ -934,7 +945,7 @@ function App() {
       
       if (lastUserMessage && lastUserMessage.image) {
         try {
-          const uploadResult = await uploadReturnPhoto(sessionId, lastUserMessage.image);
+          const uploadResult = await uploadReturnPhoto(currentSessionId, lastUserMessage.image);
           if (uploadResult && uploadResult.photo_url) {
             imageUrl = uploadResult.photo_url;
             console.log('Image uploaded to S3:', imageUrl);
@@ -946,7 +957,7 @@ function App() {
       }
 
       // Send message to Customer Returns API
-      const apiResponse = await sendReturnMessage(sessionId, text, imageUrl);
+      const apiResponse = await sendReturnMessage(currentSessionId, text, imageUrl);
       
       if (!apiResponse) {
         throw new Error('No response received from Customer Returns API');
@@ -981,7 +992,7 @@ function App() {
       if (apiResponse.bot_response) {
         finalMessages.push({
           id: Date.now() + 1,
-          text: apiResponse.bot_response,
+          text: apiResponse.bot_response.message,
           sender: 'assistant',
           timestamp: new Date(),
           structured_questions: apiResponse.structured_questions || null,
@@ -1069,7 +1080,7 @@ function App() {
       }
 
       const savedSessionId = localStorage.getItem('returnSessionId');
-      if (savedSessionId) {
+      if (savedSessionId && savedSessionId !== 'null' && savedSessionId !== 'undefined') {
         try {
           const sessionData = await getSessionDetails(savedSessionId);
           if (sessionData.success && sessionData.data.status === 'active') {
