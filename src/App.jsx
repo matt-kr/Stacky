@@ -7,7 +7,16 @@ import MessageList from './components/MessageList';
 // CONSTANTS & CONFIGURATION
 // ============================================================================
 
-const API_URL = '/api/reply';
+// Customer Returns API Configuration
+const API_BASE_URL = 'https://x8jxgxag72.execute-api.us-east-1.amazonaws.com/dev-test/api';
+const ENDPOINTS = {
+  createSession: '/customer-returns/sessions',
+  sendMessage: (sessionId) => `/customer-returns/sessions/${sessionId}/messages`,
+  uploadPhoto: (sessionId) => `/customer-returns/sessions/${sessionId}/photos`,
+  getSession: (sessionId) => `/customer-returns/sessions/${sessionId}`,
+  getStatus: (sessionId) => `/customer-returns/sessions/${sessionId}/status`,
+  complete: (sessionId) => `/customer-returns/sessions/${sessionId}/complete`
+};
 
 // ============================================================================
 // MAIN APP COMPONENT
@@ -38,7 +47,19 @@ function App() {
   // STATE MANAGEMENT - CHAT FUNCTIONALITY
   // ==========================================================================
   
-  // Chat messages with localStorage persistence
+  // Session Management for Customer Returns API
+  const [sessionId, setSessionId] = useState(() => {
+    return localStorage.getItem('returnSessionId') || null;
+  });
+  const [currentStep, setCurrentStep] = useState('session_setup');
+  const [customerInfo, setCustomerInfo] = useState(() => {
+    const saved = localStorage.getItem('customerInfo');
+    return saved ? JSON.parse(saved) : { name: '', email: '', phone: '', order_id: '' };
+  });
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [sessionStatus, setSessionStatus] = useState('inactive'); // inactive, active, completed
+  
+  // Chat messages adapted for Customer Returns workflow
   const [messages, setMessages] = useState(() => {
     const savedMessages = localStorage.getItem('chatMessages');
     if (savedMessages) {
@@ -83,6 +104,108 @@ function App() {
       
       img.src = dataUrl;
     });
+  };
+
+  // ==========================================================================
+  // API SERVICE LAYER - CUSTOMER RETURNS INTEGRATION
+  // ==========================================================================
+  
+  // Create new customer return session
+  const createReturnSession = async (customerData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}${ENDPOINTS.createSession}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: customerData.order_id,
+          merchant_id: 'greenvine', // Default merchant
+          customer_info: {
+            name: customerData.name,
+            email: customerData.email,
+            phone: customerData.phone
+          },
+          initial_message: 'I want to return my order'
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create return session');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error creating return session:', error);
+      throw error;
+    }
+  };
+
+  // Send message to customer return session
+  const sendReturnMessage = async (sessionId, message) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}${ENDPOINTS.sendMessage(sessionId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send message');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error sending message:', error);
+      throw error;
+    }
+  };
+
+  // Upload photo to customer return session
+  const uploadReturnPhoto = async (sessionId, file, description = '') => {
+    try {
+      const formData = new FormData();
+      formData.append('photo', file);
+      if (description) {
+        formData.append('description', description);
+      }
+
+      const response = await fetch(`${API_BASE_URL}${ENDPOINTS.uploadPhoto(sessionId)}`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to upload photo');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      throw error;
+    }
+  };
+
+  // Get session details and status
+  const getSessionDetails = async (sessionId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}${ENDPOINTS.getSession(sessionId)}`);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to get session details');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error getting session details:', error);
+      throw error;
+    }
   };
 
   // ==========================================================================
@@ -134,9 +257,21 @@ function App() {
   // HAMBURGER MENU ACTION HANDLERS
   // ==========================================================================
   
-  // Start a new chat session
+  // Start a new return session
   const handleNewChat = () => {
+    // Clear current session data
+    setSessionId(null);
     setMessages([]);
+    setCurrentStep('session_setup');
+    setSessionStatus('inactive');
+    setCurrentQuestion(null);
+    setCustomerInfo({ name: '', email: '', phone: '', order_id: '' });
+    
+    // Clear localStorage
+    localStorage.removeItem('returnSessionId');
+    localStorage.removeItem('chatMessages');
+    localStorage.removeItem('customerInfo');
+    
     closeHamburgerMenu();
   };
 
@@ -683,10 +818,58 @@ function App() {
   // SIDE EFFECTS & LIFECYCLE
   // ==========================================================================
   
+  // Persist session data to localStorage
+  useEffect(() => {
+    if (sessionId) {
+      localStorage.setItem('returnSessionId', sessionId);
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    localStorage.setItem('customerInfo', JSON.stringify(customerInfo));
+  }, [customerInfo]);
+  
   // Persist messages to localStorage when messages change
   useEffect(() => {
     localStorage.setItem('chatMessages', JSON.stringify(messages));
   }, [messages]);
+
+  // Load existing session on component mount
+  useEffect(() => {
+    const loadExistingSession = async () => {
+      const savedSessionId = localStorage.getItem('returnSessionId');
+      if (savedSessionId) {
+        try {
+          const sessionData = await getSessionDetails(savedSessionId);
+          if (sessionData.success && sessionData.data.status === 'active') {
+            setSessionId(savedSessionId);
+            setCurrentStep(sessionData.data.current_step);
+            setSessionStatus('active');
+            setCurrentQuestion(sessionData.data.current_question || null);
+            
+            // Load messages from session
+            const sessionMessages = sessionData.data.messages.map(msg => ({
+              id: msg.id,
+              text: msg.message,
+              sender: msg.type === 'customer' ? 'user' : 'assistant',
+              timestamp: new Date(msg.timestamp),
+              image: msg.metadata?.photo?.url || null
+            }));
+            setMessages(sessionMessages);
+          } else {
+            // Session expired or completed, clear it
+            handleNewChat();
+          }
+        } catch (error) {
+          console.error('Error loading existing session:', error);
+          // Clear invalid session
+          handleNewChat();
+        }
+      }
+    };
+
+    loadExistingSession();
+  }, []); // Only run on mount
 
   // Handle clicks outside menus to close them
   useEffect(() => {
