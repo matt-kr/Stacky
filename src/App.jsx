@@ -8,7 +8,7 @@ import MessageList from './components/MessageList';
 // ============================================================================
 
 // Customer Returns API Configuration
-const API_BASE_URL = 'https://x8jxgxag72.execute-api.us-east-1.amazonaws.com/dev-test/api';
+const API_BASE_URL = '/api'; // Use Vite proxy instead of direct AWS URL
 const ENDPOINTS = {
   createSession: '/customer-returns/sessions',
   sendMessage: (sessionId) => `/customer-returns/sessions/${sessionId}/messages`,
@@ -23,6 +23,16 @@ const ENDPOINTS = {
 // ============================================================================
 
 function App() {
+
+  // ==========================================================================
+  // CONFIGURATION & CONSTANTS
+  // ==========================================================================
+  
+  // Customer ID - in production this would come from authentication/user context
+  const customerId = 'customer_12345'; // Default customer ID for development
+  
+  // Development mode flag - set to true when backend API is not available
+  const DEVELOPMENT_MODE = false; // Using real API
 
   // ==========================================================================
   // STATE MANAGEMENT - UI & NAVIGATION
@@ -54,7 +64,12 @@ function App() {
   const [currentStep, setCurrentStep] = useState('session_setup');
   const [customerInfo, setCustomerInfo] = useState(() => {
     const saved = localStorage.getItem('customerInfo');
-    return saved ? JSON.parse(saved) : { name: '', email: '', phone: '', order_id: '' };
+    return saved ? JSON.parse(saved) : { 
+      name: 'John Doe', 
+      email: 'john@example.com', 
+      phone: '+1-555-0123', 
+      order_id: 'ORDER_12345' 
+    };
   });
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [sessionStatus, setSessionStatus] = useState('inactive'); // inactive, active, completed
@@ -110,26 +125,50 @@ function App() {
   // API SERVICE LAYER - CUSTOMER RETURNS INTEGRATION
   // ==========================================================================
   
-  // Create new customer return session
+  // Create new customer return session 
   const createReturnSession = async (customerData) => {
     try {
+      // Development mode - return mock response
+      if (DEVELOPMENT_MODE) {
+        console.log('Development Mode: Creating mock return session');
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+        return {
+          session_id: `session_${Date.now()}`,
+          current_step: 'order_verification',
+          customer_info: {
+            name: customerData.name || 'John Doe',
+            email: customerData.email || 'john@example.com',
+            phone: customerData.phone || '555-0123',
+            order_id: customerData.order_id || 'ORDER123'
+          },
+          status: 'active'
+        };
+      }
+
+      console.log('Creating return session with data:', customerData);
+      
+      const requestBody = {
+        order_id: customerData.order_id,
+        merchant_id: 'greenvine', // Default merchant
+        customer_info: {
+          name: customerData.name,
+          email: customerData.email,
+          phone: customerData.phone
+        },
+        initial_message: 'I want to return my order'
+      };
+      
+      console.log('Request body:', requestBody);
+
       const response = await fetch(`${API_BASE_URL}${ENDPOINTS.createSession}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          order_id: customerData.order_id,
-          merchant_id: 'greenvine', // Default merchant
-          customer_info: {
-            name: customerData.name,
-            email: customerData.email,
-            phone: customerData.phone
-          },
-          initial_message: 'I want to return my order'
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
         const error = await response.json();
+        console.error('API Error Response:', error);
         throw new Error(error.error || 'Failed to create return session');
       }
 
@@ -139,11 +178,54 @@ function App() {
       console.error('Error creating return session:', error);
       throw error;
     }
-  };
-
-  // Send message to customer return session
+  };  // Send message to customer return session
   const sendReturnMessage = async (sessionId, message) => {
     try {
+      // Development mode - return mock response
+      if (DEVELOPMENT_MODE) {
+        console.log('Development Mode: Sending mock message response');
+        await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API delay
+        
+        // Generate mock responses based on message content
+        let botResponse = "Thank you for contacting us about your return request. ";
+        let structuredQuestions = [];
+        let nextSteps = [];
+        
+        if (message.toLowerCase().includes('return') || message.toLowerCase().includes('refund')) {
+          botResponse += "I'd be happy to help you with your return. To process your return efficiently, I'll need some additional information.";
+          structuredQuestions = [
+            "What is your order number?",
+            "Which item(s) would you like to return?",
+            "What is the reason for the return?"
+          ];
+          nextSteps = [
+            "Provide your order details",
+            "Select items to return",
+            "Upload photos if applicable"
+          ];
+        } else if (message.toLowerCase().includes('order')) {
+          botResponse += "I can help you look up your order information. Please provide your order number or email address.";
+          structuredQuestions = [
+            "Order number (e.g., ORD-12345)",
+            "Email address used for the order"
+          ];
+        } else {
+          botResponse += "I understand you have a question. Can you provide more details about what you need help with?";
+        }
+
+        return {
+          customer_message: message,
+          bot_response: botResponse,
+          current_step: 'gathering_info',
+          structured_questions: structuredQuestions.length > 0 ? structuredQuestions : null,
+          next_steps: nextSteps.length > 0 ? nextSteps : null,
+          customer_info: {
+            name: 'John Doe',
+            email: 'john@example.com'
+          }
+        };
+      }
+
       const response = await fetch(`${API_BASE_URL}${ENDPOINTS.sendMessage(sessionId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -166,6 +248,17 @@ function App() {
   // Upload photo to customer return session
   const uploadReturnPhoto = async (sessionId, file, description = '') => {
     try {
+      // Development mode - return mock response
+      if (DEVELOPMENT_MODE) {
+        console.log('Development Mode: Mock photo upload');
+        await new Promise(resolve => setTimeout(resolve, 400)); // Simulate upload delay
+        return {
+          photo_url: `https://mock-s3-bucket.amazonaws.com/photos/${sessionId}/${Date.now()}.jpg`,
+          photo_id: `photo_${Date.now()}`,
+          status: 'uploaded'
+        };
+      }
+
       const formData = new FormData();
       formData.append('photo', file);
       if (description) {
@@ -193,6 +286,33 @@ function App() {
   // Get session details and status
   const getSessionDetails = async (sessionId) => {
     try {
+      // Development mode - return mock response
+      if (DEVELOPMENT_MODE) {
+        console.log('Development Mode: Getting mock session details');
+        await new Promise(resolve => setTimeout(resolve, 300)); // Simulate API delay
+        return {
+          success: true,
+          data: {
+            session_id: sessionId,
+            status: 'active',
+            current_step: 'gathering_info',
+            current_question: 'What would you like to return?',
+            customer_info: {
+              name: 'John Doe',
+              email: 'john@example.com'
+            },
+            messages: [
+              {
+                id: 1,
+                message: 'Hello! I can help you with your return.',
+                type: 'assistant',
+                timestamp: new Date().toISOString()
+              }
+            ]
+          }
+        };
+      }
+
       const response = await fetch(`${API_BASE_URL}${ENDPOINTS.getSession(sessionId)}`);
       
       if (!response.ok) {
@@ -265,7 +385,12 @@ function App() {
     setCurrentStep('session_setup');
     setSessionStatus('inactive');
     setCurrentQuestion(null);
-    setCustomerInfo({ name: '', email: '', phone: '', order_id: '' });
+    setCustomerInfo({ 
+      name: 'John Doe', 
+      email: 'john@example.com', 
+      phone: '+1-555-0123', 
+      order_id: 'ORDER_12345' 
+    });
     
     // Clear localStorage
     localStorage.removeItem('returnSessionId');
@@ -640,7 +765,7 @@ function App() {
       // Initialize session if needed
       if (!sessionId) {
         setSessionStatus('initializing');
-        const sessionData = await createReturnSession(customerId);
+        const sessionData = await createReturnSession(customerInfo);
         if (sessionData) {
           setSessionId(sessionData.session_id);
           setCurrentStep(sessionData.current_step);
@@ -770,7 +895,7 @@ function App() {
       // Initialize session if needed
       if (!sessionId) {
         setSessionStatus('initializing');
-        const sessionData = await createReturnSession(customerId);
+        const sessionData = await createReturnSession(customerInfo);
         if (sessionData) {
           setSessionId(sessionData.session_id);
           setCurrentStep(sessionData.current_step);
