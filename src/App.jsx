@@ -44,6 +44,8 @@ function App() {
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
   const [isPhotoMenuClosing, setIsPhotoMenuClosing] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [sessionStatusAnimating, setSessionStatusAnimating] = useState(false);
+  const [sessionStatusFading, setSessionStatusFading] = useState(false);
 
   // ==========================================================================
   // REFS FOR COMPONENT LIFECYCLE MANAGEMENT
@@ -829,7 +831,8 @@ function App() {
           setSessionId(currentSessionId);
           setCurrentStep(sessionData.data.current_step);
           setCustomerInfo(sessionData.data.customer_info || {});
-          setSessionStatus('active');
+          setSessionStatusAnimating(true);
+          setTimeout(() => setSessionStatus('active'), 100); // Brief delay before starting fade
           
           // Handle initial AI message if provided
           if (sessionData.initial_message) {
@@ -974,7 +977,8 @@ function App() {
           setSessionId(currentSessionId);
           setCurrentStep(sessionData.data.current_step);
           setCustomerInfo(sessionData.data.customer_info || {});
-          setSessionStatus('active');
+          setSessionStatusAnimating(true);
+          setTimeout(() => setSessionStatus('active'), 100); // Brief delay before starting fade
           
           // Handle initial AI message if provided
           if (sessionData.initial_message) {
@@ -1180,12 +1184,11 @@ function App() {
             setSessionStatus('initializing');
             const sessionData = await createReturnSession(customerInfo);
             if (sessionData && sessionData.success && sessionData.data) {
-              setSessionId(sessionData.data.session_id);
-              setCurrentStep(sessionData.data.current_step);
-              setCustomerInfo(sessionData.data.customer_info || {});
-              setSessionStatus('active');
-              
-              // Handle initial AI message if provided
+          setSessionId(sessionData.data.session_id);
+          setCurrentStep(sessionData.data.current_step);
+          setCustomerInfo(sessionData.data.customer_info || {});
+          setSessionStatusAnimating(true);
+          setTimeout(() => setSessionStatus('active'), 100); // Brief delay before starting fade              // Handle initial AI message if provided
               if (sessionData.initial_message) {
                 const aiMessage = {
                   id: Date.now(),
@@ -1230,6 +1233,27 @@ function App() {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, [showHamburgerMenu, showPhotoMenu]);
+
+  // Handle session status animation for smooth transitions
+  useEffect(() => {
+    if (sessionStatus === 'active' && sessionStatusAnimating) {
+      // Wait a moment then start fade-out
+      const fadeTimer = setTimeout(() => {
+        setSessionStatusFading(true);
+      }, 200); // Show success state briefly before fading
+      
+      // Remove element after fade completes
+      const hideTimer = setTimeout(() => {
+        setSessionStatusAnimating(false);
+        setSessionStatusFading(false);
+      }, 800); // 200ms delay + 600ms for fade animation
+      
+      return () => {
+        clearTimeout(fadeTimer);
+        clearTimeout(hideTimer);
+      };
+    }
+  }, [sessionStatus, sessionStatusAnimating]);
 
   // ==========================================================================
   // RENDER
@@ -1294,18 +1318,24 @@ function App() {
       {/* Error Display */}
       {error && <p className="error-message">{error}</p>}
 
-      {/* Session Status Display */}
-      {sessionStatus === 'initializing' && (
-        <div className="session-status" style={{
-          padding: '0.75rem',
-          margin: '0.5rem',
-          backgroundColor: 'rgba(0, 123, 255, 0.1)',
-          border: '1px solid rgba(0, 123, 255, 0.3)',
-          borderRadius: '8px',
-          textAlign: 'center',
-          fontSize: '0.9rem'
-        }}>
-          🔄 Initializing return session...
+      {/* Session Status Display with Animation */}
+      {(sessionStatus === 'initializing' || (sessionStatus === 'active' && sessionStatusAnimating)) && (
+        <div 
+          className="session-status" 
+          style={{
+            padding: '0.75rem',
+            margin: '0.5rem',
+            backgroundColor: sessionStatus === 'active' ? 'rgba(0, 255, 0, 0.1)' : 'rgba(0, 123, 255, 0.1)',
+            border: sessionStatus === 'active' ? '1px solid rgba(0, 255, 0, 0.3)' : '1px solid rgba(0, 123, 255, 0.3)',
+            borderRadius: '8px',
+            textAlign: 'center',
+            fontSize: '0.9rem',
+            opacity: sessionStatusFading ? 0 : 1,
+            transition: 'all 0.6s ease-out',
+            pointerEvents: 'none'
+          }}
+        >
+          {sessionStatus === 'active' ? '✅ Session ready!' : '🔄 Initializing return session...'}
         </div>
       )}
       
