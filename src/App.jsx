@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './App.css'
 import ChatInput from './components/ChatInput';
 import MessageList from './components/MessageList';
@@ -44,6 +44,12 @@ function App() {
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
   const [isPhotoMenuClosing, setIsPhotoMenuClosing] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // ==========================================================================
+  // REFS FOR COMPONENT LIFECYCLE MANAGEMENT
+  // ==========================================================================
+  
+  const sessionCreated = useRef(false);
 
   // ==========================================================================
   // STATE MANAGEMENT - CAMERA & PHOTO FUNCTIONALITY
@@ -179,7 +185,8 @@ function App() {
             phone: customerData.phone || '555-0123',
             order_id: customerData.order_id || 'ORDER123'
           },
-          status: 'active'
+          status: 'active',
+          initial_ai_message: "Hi! I'm here to help you with your return. To get started, please provide the UPC code from the item you'd like to return. You can find this barcode on the product packaging or receipt."
         };
       }
 
@@ -193,7 +200,8 @@ function App() {
           email: customerData.email,
           phone: customerData.phone
         },
-        initial_message: 'I want to return my order'
+        initial_message: 'I want to return my order',
+        auto_greeting: true // Request AI to provide initial greeting/instruction
       };
       
       console.log('Request body:', requestBody);
@@ -823,6 +831,19 @@ function App() {
           setCustomerInfo(sessionData.data.customer_info || {});
           setSessionStatus('active');
           
+          // Handle initial AI message if provided
+          if (sessionData.initial_message) {
+            const aiMessage = {
+              id: Date.now(),
+              text: sessionData.initial_message.message || sessionData.initial_message.text || sessionData.initial_message,
+              sender: 'assistant',
+              timestamp: new Date()
+            };
+            const messagesWithGreeting = [...messagesToUse, aiMessage];
+            setMessages(messagesWithGreeting);
+            safeSaveMessages(messagesWithGreeting);
+          }
+          
           // Save session to localStorage
           localStorage.setItem('returnSessionId', currentSessionId);
           localStorage.setItem('currentStep', sessionData.data.current_step);
@@ -954,6 +975,19 @@ function App() {
           setCurrentStep(sessionData.data.current_step);
           setCustomerInfo(sessionData.data.customer_info || {});
           setSessionStatus('active');
+          
+          // Handle initial AI message if provided
+          if (sessionData.initial_message) {
+            const aiMessage = {
+              id: Date.now(),
+              text: sessionData.initial_message.message || sessionData.initial_message.text || sessionData.initial_message,
+              sender: 'assistant',
+              timestamp: new Date()
+            };
+            const messagesWithGreeting = [...messages, aiMessage];
+            setMessages(messagesWithGreeting);
+            safeSaveMessages(messagesWithGreeting);
+          }
           
           // Save session to localStorage
           localStorage.setItem('returnSessionId', currentSessionId);
@@ -1137,6 +1171,44 @@ function App() {
           console.error('Error loading existing session:', error);
           // Clear invalid session
           handleNewChat();
+        }
+      } else {
+        // No existing session, create one with AI greeting (prevent duplicate creation)
+        if (!sessionCreated.current) {
+          sessionCreated.current = true;
+          try {
+            setSessionStatus('initializing');
+            const sessionData = await createReturnSession(customerInfo);
+            if (sessionData && sessionData.success && sessionData.data) {
+              setSessionId(sessionData.data.session_id);
+              setCurrentStep(sessionData.data.current_step);
+              setCustomerInfo(sessionData.data.customer_info || {});
+              setSessionStatus('active');
+              
+              // Handle initial AI message if provided
+              if (sessionData.initial_message) {
+                const aiMessage = {
+                  id: Date.now(),
+                  text: sessionData.initial_message.message || sessionData.initial_message.text || sessionData.initial_message,
+                  sender: 'assistant',
+                  timestamp: new Date()
+                };
+                setMessages([aiMessage]);
+                safeSaveMessages([aiMessage]);
+              }
+              
+              // Save session to localStorage
+              localStorage.setItem('returnSessionId', sessionData.data.session_id);
+              localStorage.setItem('currentStep', sessionData.data.current_step);
+              localStorage.setItem('customerInfo', JSON.stringify(sessionData.data.customer_info || {}));
+            } else {
+              setSessionStatus('error');
+              console.error('Failed to create initial session');
+            }
+          } catch (error) {
+            console.error('Error creating initial session:', error);
+            setSessionStatus('error');
+          }
         }
       }
     };
