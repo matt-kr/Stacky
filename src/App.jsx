@@ -365,6 +365,7 @@ function App() {
       }
 
       const data = await response.json();
+      console.log('Session details response:', data); // Add debugging
       return data;
     } catch (error) {
       console.error('Error getting session details:', error);
@@ -1115,15 +1116,19 @@ function App() {
             setSessionStatus('active');
             setCurrentQuestion(sessionData.data.current_question || null);
             
-            // Load messages from session
-            const sessionMessages = sessionData.data.messages.map(msg => ({
-              id: msg.id,
-              text: msg.message,
-              sender: msg.type === 'customer' ? 'user' : 'assistant',
-              timestamp: new Date(msg.timestamp),
-              image: msg.metadata?.photo?.url || null
-            }));
-            setMessages(sessionMessages);
+            // Load messages from session (with null check)
+            if (sessionData.data.messages && Array.isArray(sessionData.data.messages)) {
+              const sessionMessages = sessionData.data.messages.map(msg => ({
+                id: msg.id,
+                text: msg.message,
+                sender: msg.type === 'customer' ? 'user' : 'assistant',
+                timestamp: new Date(msg.timestamp),
+                image: msg.metadata?.photo?.url || null
+              }));
+              setMessages(sessionMessages);
+            } else {
+              console.warn('No messages found in session data, keeping existing messages');
+            }
           } else {
             // Session expired or completed, clear it
             handleNewChat();
@@ -1232,7 +1237,7 @@ function App() {
         </div>
       )}
       
-      {sessionId && currentStep && (
+      {sessionId && currentStep && false && (
         <div className="session-info" style={{
           padding: '0.5rem',
           margin: '0.5rem',
