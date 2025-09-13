@@ -978,18 +978,19 @@ function App() {
       }
 
       // Send message to Customer Returns API
+      console.log('Sending message to API:', { sessionId: currentSessionId, message: text, imageUrl });
       const apiResponse = await sendReturnMessage(currentSessionId, text, imageUrl);
       
-      console.log('API Response received:', apiResponse);
+      console.log('Raw API Response received:', apiResponse);
       console.log('API Response structure analysis:');
-      console.log('- success:', apiResponse.success);
-      console.log('- data:', apiResponse.data);
-      if (apiResponse.data) {
+      console.log('- success:', apiResponse?.success);
+      console.log('- data:', apiResponse?.data);
+      if (apiResponse?.data) {
         console.log('- data keys:', Object.keys(apiResponse.data));
         console.log('- data content:', apiResponse.data);
       }
-      console.log('- bot_response at root:', apiResponse.bot_response);
-      console.log('- bot_response in data:', apiResponse.data?.bot_response);
+      console.log('- bot_response at root:', apiResponse?.bot_response);
+      console.log('- bot_response in data:', apiResponse?.data?.bot_response);
       
       if (!apiResponse) {
         throw new Error('No response received from Customer Returns API');
@@ -1189,19 +1190,34 @@ function App() {
 
       // Add bot response
       if (apiResponse.bot_response) {
+        console.log('Found bot_response, processing...');
+        console.log('bot_response structure:', apiResponse.bot_response);
+        
+        // Extract text content from bot response
+        const botText = apiResponse.bot_response.content || apiResponse.bot_response.message || apiResponse.bot_response;
+        console.log('Extracted bot text:', botText);
+        
         finalMessages.push({
           id: Date.now() + 1,
-          text: apiResponse.bot_response.message,
+          text: botText,
           sender: 'assistant',
           timestamp: new Date(),
           structured_questions: apiResponse.structured_questions || null,
           next_steps: apiResponse.next_steps || null
         });
+        
+        console.log('Added bot message to finalMessages. Total messages:', finalMessages.length);
+      } else {
+        console.warn('No bot_response found in API response');
+        console.log('Full API response for debugging:', JSON.stringify(apiResponse, null, 2));
       }
 
       setMessages(finalMessages);
       safeSaveMessages(finalMessages);
       setRetryInfo(null);
+      
+      console.log('Final messages state updated. Total messages:', finalMessages.length);
+      console.log('Last message in state:', finalMessages[finalMessages.length - 1]);
 
     } catch (err) {
       console.error('Customer Returns API Error:', err);
