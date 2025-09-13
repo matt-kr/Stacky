@@ -242,6 +242,16 @@ const DebugOverlay = () => {
             Clear
           </button>
           <button 
+            onClick={() => {
+              localStorage.removeItem('stacky_debug');
+              window.location.reload();
+            }} 
+            style={{ marginRight: '8px', backgroundColor: '#dc2626', border: 'none', color: 'white', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer' }}
+            title="Exit debug mode"
+          >
+            Logout
+          </button>
+          <button 
             onClick={() => setIsOpen(false)} 
             style={{ backgroundColor: '#ef4444', border: 'none', color: 'white', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer' }}
           >
