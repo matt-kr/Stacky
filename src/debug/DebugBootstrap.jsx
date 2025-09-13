@@ -4,9 +4,9 @@
 import { debugBus } from './DebugBus.js';
 
 // Import collectors
-import './collectors/apiCollector.js';
-import './collectors/errorCollector.js';
-import './collectors/photoCollector.js';
+import { installApiCollector } from './collectors/apiCollector.js';
+import { installErrorCollector } from './collectors/errorCollector.js';
+import { installPhotoCollector } from './collectors/photoCollector.js';
 
 export const initializeDebugSystem = () => {
   // Check if debug is enabled
@@ -20,6 +20,11 @@ export const initializeDebugSystem = () => {
   try {
     // Initialize debug bus
     debugBus.log('🚀 Debug system starting...');
+    
+    // Install collectors
+    installApiCollector();
+    installErrorCollector();
+    installPhotoCollector();
     
     // Add global debug utilities
     window.stackyDebug = {
@@ -40,21 +45,6 @@ export const initializeDebugSystem = () => {
         debugBus.log(`🔔 Notifications ${enabled ? 'enabled' : 'disabled'}`);
       }
     };
-
-    // Setup enhanced error reporting
-    const originalConsoleError = console.error;
-    console.error = (...args) => {
-      debugBus.logError('console.error', { args });
-      originalConsoleError.apply(console, args);
-    };
-
-    // Setup unhandled promise rejection tracking
-    window.addEventListener('unhandledrejection', (event) => {
-      debugBus.logError('unhandled_promise_rejection', {
-        reason: event.reason?.toString(),
-        stack: event.reason?.stack
-      });
-    });
 
     debugBus.log('✅ Debug system initialized successfully');
     

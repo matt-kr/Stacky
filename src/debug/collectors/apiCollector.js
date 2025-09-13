@@ -1,4 +1,4 @@
-import { debugBus } from './DebugBus.js';
+import { debugBus } from '../DebugBus.js';
 
 /**
  * API Collector - Wraps fetch to track all API calls
