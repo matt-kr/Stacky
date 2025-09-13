@@ -33,7 +33,7 @@ function App() {
   
   // Development mode flag - set to true when backend API is not available
   const DEVELOPMENT_MODE = false; // Using real API
-  const PHOTO_DEVELOPMENT_MODE = true; // Temporarily bypass photo API issues
+  const PHOTO_DEVELOPMENT_MODE = false; // Use real photo API instead of mock
 
   // ==========================================================================
   // STATE MANAGEMENT - UI & NAVIGATION
