@@ -871,7 +871,9 @@ function App() {
         text: 'Here is my photo',
         sender: 'user',
         timestamp: new Date(),
-        image: photoUrl
+        image: DEVELOPMENT_MODE || PHOTO_DEVELOPMENT_MODE ? 
+          'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk1vY2sgUGhvdG88L3RleHQ+PC9zdmc+' : 
+          photoUrl
       };
       
       const updatedMessages = [...currentMessages, customerMsg];
@@ -979,6 +981,15 @@ function App() {
       const apiResponse = await sendReturnMessage(currentSessionId, text, imageUrl);
       
       console.log('API Response received:', apiResponse);
+      console.log('API Response structure analysis:');
+      console.log('- success:', apiResponse.success);
+      console.log('- data:', apiResponse.data);
+      if (apiResponse.data) {
+        console.log('- data keys:', Object.keys(apiResponse.data));
+        console.log('- data content:', apiResponse.data);
+      }
+      console.log('- bot_response at root:', apiResponse.bot_response);
+      console.log('- bot_response in data:', apiResponse.data?.bot_response);
       
       if (!apiResponse) {
         throw new Error('No response received from Customer Returns API');
@@ -1009,19 +1020,36 @@ function App() {
         });
       }
 
-      // Add bot response
+      // Add bot response - check multiple possible response structures
+      let botResponse = null;
+      
       if (apiResponse.bot_response) {
-        console.log('Adding bot response to messages:', apiResponse.bot_response);
+        // Direct bot_response at root level
+        botResponse = apiResponse.bot_response;
+      } else if (apiResponse.data && apiResponse.data.bot_response) {
+        // bot_response nested in data
+        botResponse = apiResponse.data.bot_response;
+      } else if (apiResponse.data && apiResponse.data.message) {
+        // Simple message in data object
+        botResponse = { message: apiResponse.data.message };
+      }
+      
+      if (botResponse) {
+        console.log('Adding bot response to messages:', botResponse);
         updatedMessages.push({
           id: Date.now() + 1,
-          text: apiResponse.bot_response.message || apiResponse.bot_response,
+          text: botResponse.message || botResponse,
           sender: 'assistant',
           timestamp: new Date(),
-          structured_questions: apiResponse.structured_questions || null,
-          next_steps: apiResponse.next_steps || null
+          structured_questions: apiResponse.structured_questions || apiResponse.data?.structured_questions || null,
+          next_steps: apiResponse.next_steps || apiResponse.data?.next_steps || null
         });
       } else {
-        console.warn('No bot_response found in API response:', apiResponse);
+        console.warn('No bot response found in API response:', apiResponse);
+        console.warn('API response keys:', Object.keys(apiResponse));
+        if (apiResponse.data) {
+          console.warn('API response.data keys:', Object.keys(apiResponse.data));
+        }
       }
 
       console.log('Updated messages:', updatedMessages);
