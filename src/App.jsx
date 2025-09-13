@@ -845,7 +845,26 @@ function App() {
   // Complete photo workflow: Upload → Stage → Send
   const uploadAndSendPhoto = async (file, description = 'Customer photo') => {
     try {
-      // Step 1: Upload to S3 (staging)
+      // INSTANT UX: Add user message with blob URL immediately
+      const blobUrl = URL.createObjectURL(file);
+      const userMessage = {
+        id: Date.now(),
+        text: 'Here is my photo',
+        sender: 'user',
+        timestamp: new Date(),
+        image: null, // Don't use image prop
+        blobUrl: blobUrl, // Use blob for instant display
+        s3Url: null // Will be set after upload
+      };
+      
+      const currentMessages = [...messages];
+      const updatedMessages = [...currentMessages, userMessage];
+      setMessages(updatedMessages);
+      safeSaveMessages(updatedMessages);
+      
+      console.log('User message added instantly with blob URL');
+      
+      // Step 1: Upload to S3 (staging) in background
       console.log('Uploading photo to staging...');
       const uploadResult = await uploadReturnPhoto(sessionId, file, description);
       
@@ -855,6 +874,17 @@ function App() {
 
       const photoUrl = uploadResult.data.photo_url;
       console.log('Photo uploaded successfully:', photoUrl);
+      
+      // Update the user message with S3 URL
+      const messagesWithS3 = updatedMessages.map(msg => 
+        msg.id === userMessage.id 
+          ? { ...msg, s3Url: photoUrl }
+          : msg
+      );
+      setMessages(messagesWithS3);
+      safeSaveMessages(messagesWithS3);
+      
+      console.log('User message updated with S3 URL');
 
       // Step 2: Send photo as message to chatbot
       console.log('Sending photo message to chatbot...');
@@ -872,28 +902,10 @@ function App() {
         throw new Error('Failed to send photo message');
       }
 
-      // Step 3: Update UI with messages from API response
-      // Use the existing handleSendMessageWithContext logic for consistency
-      const currentMessages = [...messages];
-      
-      // Add customer message with photo
-      const customerMsg = {
-        id: Date.now(),
-        text: 'Here is my photo',
-        sender: 'user',
-        timestamp: new Date(),
-        image: DEVELOPMENT_MODE || PHOTO_DEVELOPMENT_MODE ? 
-          'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk1vY2sgUGhvdG88L3RleHQ+PC9zdmc+' : 
-          photoUrl
-      };
-      
-      const updatedMessages = [...currentMessages, customerMsg];
-      setMessages(updatedMessages);
-      safeSaveMessages(updatedMessages);
-
+      // Step 3: Add AI response to chat
       // Trigger AI response using existing workflow
       setTimeout(() => {
-        handleSendMessageWithContext('I\'ve shared an image with you.', updatedMessages);
+        handleSendMessageWithContext('I\'ve shared an image with you.', messagesWithS3);
       }, 100);
 
       console.log('Photo workflow completed successfully');

@@ -71,7 +71,7 @@ export default function Message({ message }) {
         <p className="sender-name">{senderName}</p>
         <div className={`message-bubble ${bubbleClass}`}>
           {imageUrl && (
-            <div className="message-image">
+            <div className="message-image" style={{ position: 'relative' }}>
               <img 
                 src={imageUrl} 
                 alt="Shared image" 
