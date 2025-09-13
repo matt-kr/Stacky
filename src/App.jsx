@@ -1189,12 +1189,13 @@ function App() {
       }
 
       // Add bot response
-      if (apiResponse.bot_response) {
+      const botResponse = apiResponse.bot_response || apiResponse.data?.bot_response;
+      if (botResponse) {
         console.log('Found bot_response, processing...');
-        console.log('bot_response structure:', apiResponse.bot_response);
+        console.log('bot_response structure:', botResponse);
         
         // Extract text content from bot response
-        const botText = apiResponse.bot_response.content || apiResponse.bot_response.message || apiResponse.bot_response;
+        const botText = botResponse.content || botResponse.message || botResponse;
         console.log('Extracted bot text:', botText);
         
         finalMessages.push({
@@ -1202,8 +1203,8 @@ function App() {
           text: botText,
           sender: 'assistant',
           timestamp: new Date(),
-          structured_questions: apiResponse.structured_questions || null,
-          next_steps: apiResponse.next_steps || null
+          structured_questions: apiResponse.structured_questions || apiResponse.data?.structured_questions || null,
+          next_steps: apiResponse.next_steps || apiResponse.data?.next_steps || null
         });
         
         console.log('Added bot message to finalMessages. Total messages:', finalMessages.length);
