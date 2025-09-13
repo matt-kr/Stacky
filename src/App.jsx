@@ -1452,8 +1452,22 @@ function App() {
           setCurrentStep(sessionData.data.current_step);
           setCustomerInfo(sessionData.data.customer_info || {});
           setSessionStatusAnimating(true);
-          setTimeout(() => setSessionStatus('active'), 100); // Brief delay before starting fade              // Handle initial AI message if provided
-              if (sessionData.initial_message) {
+          setTimeout(() => setSessionStatus('active'), 100); // Brief delay before starting fade              // Handle initial AI message from chat_history
+              const chatHistory = sessionData.data.chat_history;
+              if (chatHistory && Array.isArray(chatHistory) && chatHistory.length > 0) {
+                console.log('Found chat history in new session:', chatHistory);
+                const initialMessages = chatHistory.map(msg => ({
+                  id: msg.id,
+                  text: msg.message,
+                  sender: msg.type === 'customer' ? 'user' : 'assistant',
+                  timestamp: new Date(msg.timestamp),
+                  image: msg.metadata?.photo?.url || null
+                }));
+                console.log('Setting initial messages from chat history:', initialMessages);
+                setMessages(initialMessages);
+                safeSaveMessages(initialMessages);
+              } else if (sessionData.initial_message) {
+                // Fallback for old format
                 const aiMessage = {
                   id: Date.now(),
                   text: sessionData.initial_message.message || sessionData.initial_message.text || sessionData.initial_message,
