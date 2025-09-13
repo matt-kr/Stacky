@@ -1413,17 +1413,20 @@ function App() {
             // Load messages from session (with null check)
             console.log('Session details response:', sessionData);
             
-            if (sessionData.data.messages && Array.isArray(sessionData.data.messages)) {
-              console.log('Found messages in session data:', sessionData.data.messages);
-              const sessionMessages = sessionData.data.messages.map(msg => ({
+            // Check for both 'messages' and 'chat_history' fields
+            const sessionMessages = sessionData.data.messages || sessionData.data.chat_history;
+            
+            if (sessionMessages && Array.isArray(sessionMessages)) {
+              console.log('Found messages in session data:', sessionMessages);
+              const mappedMessages = sessionMessages.map(msg => ({
                 id: msg.id,
                 text: msg.message,
                 sender: msg.type === 'customer' ? 'user' : 'assistant',
                 timestamp: new Date(msg.timestamp),
                 image: msg.metadata?.photo?.url || null
               }));
-              console.log('Mapped session messages:', sessionMessages);
-              setMessages(sessionMessages);
+              console.log('Mapped session messages:', mappedMessages);
+              setMessages(mappedMessages);
             } else {
               console.warn('No messages found in session data, keeping existing messages');
               console.log('Session data structure:', sessionData.data);
