@@ -7,6 +7,7 @@ import { debugBus } from './DebugBus.js';
 import { installApiCollector } from './collectors/apiCollector.js';
 import { installErrorCollector } from './collectors/errorCollector.js';
 import { installPhotoCollector } from './collectors/photoCollector.js';
+import { installSessionCollector, refreshSessionData } from './collectors/sessionCollector.js';
 
 export const initializeDebugSystem = () => {
   // Check if debug is enabled
@@ -23,6 +24,7 @@ export const initializeDebugSystem = () => {
     debugBus.log('info', '🚀 Debug system starting...');
     
     // Install collectors
+    installSessionCollector();
     installApiCollector();
     installErrorCollector();
     installPhotoCollector();
@@ -31,6 +33,7 @@ export const initializeDebugSystem = () => {
     window.stackyDebug = {
       bus: debugBus,
       clearLogs: () => debugBus.clear(),
+      refreshSession: refreshSessionData,
       test: () => {
         debugBus.log('info', 'Test message from console');
         debugBus.logApiCall('GET', '/test', 200, 150, { test: true });
@@ -39,6 +42,7 @@ export const initializeDebugSystem = () => {
         console.log('Test messages added to debug bus');
       },
       getLogs: () => ({
+        sessionData: debugBus.sessionData,
         logs: debugBus.logs,
         apiCalls: debugBus.apiCalls,
         photoEvents: debugBus.photoEvents,

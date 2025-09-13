@@ -10,6 +10,7 @@ class DebugBus {
     this.stateChanges = [];
     this.photoEvents = [];
     this.errors = [];
+    this.sessionData = null; // Store current session data
     this.maxItems = 1000; // Prevent memory issues
     this.listeners = new Set();
     this.isEnabled = false;
@@ -112,6 +113,17 @@ class DebugBus {
     this.notify();
   }
 
+  // Session data tracking
+  logSessionData(data) {
+    if (!this.isEnabled) return;
+
+    this.sessionData = {
+      timestamp: new Date().toISOString(),
+      data: this.redactSensitiveData(data)
+    };
+    this.notify();
+  }
+
   // Error tracking
   logError(error, context = '') {
     if (!this.isEnabled) return;
@@ -195,6 +207,7 @@ class DebugBus {
   // Get all debug data
   getData() {
     return {
+      sessionData: this.sessionData,
       logs: [...this.logs],
       apiCalls: [...this.apiCalls],
       stateChanges: [...this.stateChanges],

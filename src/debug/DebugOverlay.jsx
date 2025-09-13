@@ -3,7 +3,7 @@ import { debugBus } from './DebugBus.js';
 
 const DebugOverlay = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('logs');
+  const [activeTab, setActiveTab] = useState('session');
   const [position, setPosition] = useState({ x: window.innerWidth - 320, y: 20 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -150,6 +150,51 @@ const DebugOverlay = () => {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'session':
+        return (
+          <div>
+            <div style={{ marginBottom: '10px', display: 'flex', gap: '8px' }}>
+              <button 
+                onClick={() => window.stackyDebug?.refreshSession?.()} 
+                style={{ 
+                  backgroundColor: '#10b981', 
+                  border: 'none', 
+                  color: 'white', 
+                  padding: '4px 8px', 
+                  borderRadius: '3px', 
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                🔄 Refresh
+              </button>
+            </div>
+            {debugData.sessionData ? (
+              <div style={logEntryStyle}>
+                <div style={{ color: '#10b981', marginBottom: '8px' }}>
+                  Session Data [{formatTime(debugData.sessionData.timestamp)}]
+                </div>
+                <pre style={{ 
+                  color: '#e5e7eb', 
+                  fontSize: '11px', 
+                  lineHeight: '1.4',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  margin: 0,
+                  maxHeight: '300px',
+                  overflowY: 'auto'
+                }}>
+                  {JSON.stringify(debugData.sessionData.data, null, 2)}
+                </pre>
+              </div>
+            ) : (
+              <div style={{ color: '#9ca3af', fontStyle: 'italic' }}>
+                No session data available. Use the refresh button to fetch session information.
+              </div>
+            )}
+          </div>
+        );
+      
       case 'logs':
         return (
           <div>
@@ -261,6 +306,12 @@ const DebugOverlay = () => {
       </div>
       
       <div style={tabStyle}>
+        <button 
+          style={tabButtonStyle(activeTab === 'session')} 
+          onClick={() => setActiveTab('session')}
+        >
+          Session
+        </button>
         <button 
           style={tabButtonStyle(activeTab === 'logs')} 
           onClick={() => setActiveTab('logs')}
