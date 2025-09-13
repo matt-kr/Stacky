@@ -9,10 +9,13 @@ const originalCreateObjectURL = URL.createObjectURL;
 const originalRevokeObjectURL = URL.revokeObjectURL;
 
 export function installPhotoCollector() {
+  console.log('🔧 Installing Photo Collector...');
+  
   // Track blob creation
   URL.createObjectURL = function(object) {
     const blobUrl = originalCreateObjectURL.call(this, object);
     
+    console.log('🖼️ Blob URL created:', blobUrl);
     debugBus.logPhotoEvent('blob_created', {
       blobUrl,
       objectType: object.constructor.name,
@@ -24,11 +27,13 @@ export function installPhotoCollector() {
   
   // Track blob cleanup
   URL.revokeObjectURL = function(blobUrl) {
+    console.log('🗑️ Blob URL revoked:', blobUrl);
     debugBus.logPhotoEvent('blob_revoked', { blobUrl });
     return originalRevokeObjectURL.call(this, blobUrl);
   };
   
   debugBus.log('info', 'Photo Collector installed');
+  console.log('✅ Photo Collector installed successfully');
 }
 
 export function uninstallPhotoCollector() {

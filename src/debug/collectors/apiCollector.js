@@ -8,8 +8,11 @@ import { debugBus } from '../DebugBus.js';
 const originalFetch = window.fetch;
 
 export function installApiCollector() {
+  console.log('🔧 Installing API Collector...');
+  
   // Replace global fetch with our wrapper
   window.fetch = async function(...args) {
+    console.log('🌐 Intercepted fetch call:', args[0]);
     const startTime = performance.now();
     const [url, options = {}] = args;
     const method = options.method || 'GET';
@@ -21,6 +24,8 @@ export function installApiCollector() {
       const response = await originalFetch.apply(this, args);
       const endTime = performance.now();
       const duration = Math.round(endTime - startTime);
+      
+      console.log(`✅ API call completed: ${method} ${url} - ${response.status} (${duration}ms)`);
       
       // Log successful response
       debugBus.logApiCall(method, url, response.status, duration, {
@@ -68,6 +73,7 @@ export function installApiCollector() {
   };
   
   debugBus.log('info', 'API Collector installed');
+  console.log('✅ API Collector installed successfully');
 }
 
 export function uninstallApiCollector() {

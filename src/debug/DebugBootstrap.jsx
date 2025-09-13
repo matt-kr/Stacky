@@ -19,7 +19,8 @@ export const initializeDebugSystem = () => {
 
   try {
     // Initialize debug bus
-    debugBus.log('🚀 Debug system starting...');
+    debugBus.enable(); // Enable the debug bus first!
+    debugBus.log('info', '🚀 Debug system starting...');
     
     // Install collectors
     installApiCollector();
@@ -30,6 +31,19 @@ export const initializeDebugSystem = () => {
     window.stackyDebug = {
       bus: debugBus,
       clearLogs: () => debugBus.clear(),
+      test: () => {
+        debugBus.log('info', 'Test message from console');
+        debugBus.logApiCall('GET', '/test', 200, 150, { test: true });
+        debugBus.logPhotoEvent('test_event', { test: true });
+        debugBus.logError(new Error('Test error'), 'Manual test');
+        console.log('Test messages added to debug bus');
+      },
+      getLogs: () => ({
+        logs: debugBus.logs,
+        apiCalls: debugBus.apiCalls,
+        photoEvents: debugBus.photoEvents,
+        errors: debugBus.errors
+      }),
       exportLogs: () => {
         const logs = debugBus.getLogs();
         const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
@@ -42,11 +56,11 @@ export const initializeDebugSystem = () => {
       },
       toggleNotifications: (enabled) => {
         debugBus.notificationsEnabled = enabled;
-        debugBus.log(`🔔 Notifications ${enabled ? 'enabled' : 'disabled'}`);
+        debugBus.log('info', `🔔 Notifications ${enabled ? 'enabled' : 'disabled'}`);
       }
     };
 
-    debugBus.log('✅ Debug system initialized successfully');
+    debugBus.log('info', '✅ Debug system initialized successfully');
     
     return true;
   } catch (error) {
