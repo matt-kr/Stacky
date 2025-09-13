@@ -1,4 +1,58 @@
+import { useState, useEffect } from 'react';
+
 export default function Message({ message }) {
+  // State for managing image loading transition
+  const [imageUrl, setImageUrl] = useState(null);
+  const [isS3Loaded, setIsS3Loaded] = useState(false);
+  
+  useEffect(() => {
+    if (message.image || message.blobUrl || message.s3Url) {
+      // Priority: Start with blob URL for instant display, then transition to S3
+      if (message.blobUrl) {
+        console.log('Using blob URL for immediate display:', message.blobUrl);
+        setImageUrl(message.blobUrl);
+        setIsS3Loaded(false);
+        
+        // If we have S3 URL, preload it in background
+        if (message.s3Url) {
+          console.log('Preloading S3 URL in background:', message.s3Url);
+          const img = new Image();
+          img.onload = () => {
+            console.log('S3 image loaded, transitioning from blob to S3');
+            setImageUrl(message.s3Url);
+            setIsS3Loaded(true);
+            // Clean up blob URL after transition
+            setTimeout(() => {
+              if (message.blobUrl) {
+                URL.revokeObjectURL(message.blobUrl);
+                console.log('Cleaned up blob URL');
+              }
+            }, 100);
+          };
+          img.onerror = () => {
+            console.error('Failed to load S3 image, keeping blob URL');
+          };
+          img.src = message.s3Url;
+        }
+      } else if (message.s3Url) {
+        // Direct S3 URL if no blob
+        setImageUrl(message.s3Url);
+        setIsS3Loaded(true);
+      } else if (message.image) {
+        // Fallback to original image prop
+        setImageUrl(message.image);
+        setIsS3Loaded(true);
+      }
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (message.blobUrl && isS3Loaded) {
+        URL.revokeObjectURL(message.blobUrl);
+      }
+    };
+  }, [message.image, message.blobUrl, message.s3Url, isS3Loaded]);
+
   // The 'message' prop will have { text, sender, timestamp, image?, structured_questions?, next_steps? }
   const isUser = message.sender === 'user';
   const senderName = isUser ? 'You' : (
@@ -16,15 +70,36 @@ export default function Message({ message }) {
       <div className="message-content">
         <p className="sender-name">{senderName}</p>
         <div className={`message-bubble ${bubbleClass}`}>
-          {message.image && (
+          {imageUrl && (
             <div className="message-image">
-              <img src={message.image} alt="Shared image" style={{
-                maxWidth: '300px',
-                maxHeight: '300px',
-                borderRadius: '8px',
-                marginBottom: '0.5rem',
-                display: 'block'
-              }} />
+              <img 
+                src={imageUrl} 
+                alt="Shared image" 
+                style={{
+                  maxWidth: '300px',
+                  maxHeight: '300px',
+                  borderRadius: '8px',
+                  marginBottom: '0.5rem',
+                  display: 'block',
+                  transition: 'opacity 0.3s ease-in-out',
+                  opacity: imageUrl ? 1 : 0
+                }} 
+              />
+              {/* Show loading indicator only if we're using blob and waiting for S3 */}
+              {message.blobUrl && message.s3Url && !isS3Loaded && (
+                <div style={{
+                  position: 'absolute',
+                  top: '8px',
+                  right: '8px',
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  color: 'white',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '0.75rem'
+                }}>
+                  📡 Uploading...
+                </div>
+              )}
             </div>
           )}
           <p className="message-text">{message.text}</p>

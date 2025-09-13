@@ -1157,16 +1157,30 @@ function App() {
       if (lastUserMessage && lastUserMessage.image) {
         try {
           console.log('Step 1: Uploading photo to staging area...');
+          
+          // Create blob URL for immediate display
+          const blobUrl = URL.createObjectURL(lastUserMessage.image);
+          console.log('Created blob URL for immediate display:', blobUrl);
+          
           const uploadResult = await uploadReturnPhoto(currentSessionId, lastUserMessage.image);
           if (uploadResult && uploadResult.photo_url) {
             imageUrl = uploadResult.photo_url;
             console.log('Step 1 complete - Photo staged at:', imageUrl);
             console.log('Step 2: Will send photo_url with message to chatbot...');
+            
+            // Store both URLs - blob for immediate display, S3 for API
+            lastUserMessage.blobUrl = blobUrl;
+            lastUserMessage.s3Url = imageUrl;
           } else {
             throw new Error('No photo_url returned from staging upload');
           }
         } catch (uploadError) {
           console.error('Step 1 failed - Photo staging error:', uploadError);
+          
+          // Clean up blob URL on error
+          if (lastUserMessage.blobUrl) {
+            URL.revokeObjectURL(lastUserMessage.blobUrl);
+          }
           
           // Add error message to chat to inform user about staging failure
           const errorMessage = {
@@ -1220,13 +1234,16 @@ function App() {
       
       // Add user message (if not already added)
       if (retryCount === 0) {
-        finalMessages.push({
+        const userMessage = {
           id: Date.now(),
           text,
           sender: 'user',
           timestamp: new Date(),
-          image: lastUserMessage?.image || null
-        });
+          image: lastUserMessage?.image || null,
+          blobUrl: lastUserMessage?.blobUrl || null,
+          s3Url: lastUserMessage?.s3Url || null
+        };
+        finalMessages.push(userMessage);
       }
 
       // Add bot response
