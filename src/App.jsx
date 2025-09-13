@@ -230,7 +230,7 @@ function App() {
       throw error;
     }
   };  // Send message to customer return session
-  const sendReturnMessage = async (sessionId, message) => {
+  const sendReturnMessage = async (sessionId, message, imageUrl = null) => {
     try {
       // Development mode - return mock response
       if (DEVELOPMENT_MODE) {
@@ -277,10 +277,16 @@ function App() {
         };
       }
 
+      const requestBody = { message };
+      if (imageUrl) {
+        requestBody.photo_url = imageUrl;
+        console.log('Step 2: Including photo_url in message request:', imageUrl);
+      }
+      
       const response = await fetch(`${API_BASE_URL}${ENDPOINTS.sendMessage(sessionId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -1150,19 +1156,22 @@ function App() {
       
       if (lastUserMessage && lastUserMessage.image) {
         try {
-          console.log('Attempting to upload photo to staging area...');
+          console.log('Step 1: Uploading photo to staging area...');
           const uploadResult = await uploadReturnPhoto(currentSessionId, lastUserMessage.image);
           if (uploadResult && uploadResult.photo_url) {
             imageUrl = uploadResult.photo_url;
-            console.log('Image uploaded to S3:', imageUrl);
+            console.log('Step 1 complete - Photo staged at:', imageUrl);
+            console.log('Step 2: Will send photo_url with message to chatbot...');
+          } else {
+            throw new Error('No photo_url returned from staging upload');
           }
         } catch (uploadError) {
-          console.error('Failed to upload image:', uploadError);
+          console.error('Step 1 failed - Photo staging error:', uploadError);
           
-          // Add error message to chat to inform user
+          // Add error message to chat to inform user about staging failure
           const errorMessage = {
             id: Date.now() - 1,
-            text: "Sorry, there was an issue uploading your photo. I'll process your message without the image for now. Please try uploading the photo again if needed.",
+            text: "Sorry, there was an issue uploading your photo to our staging area. The photo upload service may be temporarily unavailable. Please try again in a moment.",
             sender: 'assistant',
             timestamp: new Date(),
             isError: true
@@ -1183,7 +1192,8 @@ function App() {
           setMessages(messagesWithError);
           safeSaveMessages(messagesWithError);
           
-          // Continue without image
+          // Don't continue - let user retry
+          return;
         }
       }
 
