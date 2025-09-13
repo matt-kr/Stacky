@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function Message({ message }) {
   // State for managing image loading transition
   const [imageUrl, setImageUrl] = useState(null);
   const [isS3Loaded, setIsS3Loaded] = useState(false);
+  const imageRef = useRef(null);
   
   useEffect(() => {
     if (message.image || message.blobUrl || message.s3Url) {
@@ -19,15 +20,39 @@ export default function Message({ message }) {
           const img = new Image();
           img.onload = () => {
             console.log('S3 image loaded, transitioning from blob to S3');
-            setImageUrl(message.s3Url);
-            setIsS3Loaded(true);
+            
+            // Smooth transition without layout shift
+            if (imageRef.current) {
+              const currentHeight = imageRef.current.offsetHeight;
+              const currentWidth = imageRef.current.offsetWidth;
+              
+              // Temporarily fix dimensions to prevent jump
+              imageRef.current.style.height = currentHeight + 'px';
+              imageRef.current.style.width = currentWidth + 'px';
+              
+              // Change src
+              setImageUrl(message.s3Url);
+              setIsS3Loaded(true);
+              
+              // Remove fixed dimensions after transition
+              setTimeout(() => {
+                if (imageRef.current) {
+                  imageRef.current.style.height = '';
+                  imageRef.current.style.width = '';
+                }
+              }, 300);
+            } else {
+              setImageUrl(message.s3Url);
+              setIsS3Loaded(true);
+            }
+            
             // Clean up blob URL after transition
             setTimeout(() => {
               if (message.blobUrl) {
                 URL.revokeObjectURL(message.blobUrl);
                 console.log('Cleaned up blob URL');
               }
-            }, 100);
+            }, 400);
           };
           img.onerror = () => {
             console.error('Failed to load S3 image, keeping blob URL');
@@ -73,6 +98,7 @@ export default function Message({ message }) {
           {imageUrl && (
             <div className="message-image" style={{ position: 'relative' }}>
               <img 
+                ref={imageRef}
                 src={imageUrl} 
                 alt="Shared image" 
                 style={{

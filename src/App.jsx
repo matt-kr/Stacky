@@ -875,14 +875,15 @@ function App() {
       const photoUrl = uploadResult.data.photo_url;
       console.log('Photo uploaded successfully:', photoUrl);
       
-      // Update the user message with S3 URL
-      const messagesWithS3 = updatedMessages.map(msg => 
-        msg.id === userMessage.id 
-          ? { ...msg, s3Url: photoUrl }
-          : msg
+      // Update the user message with S3 URL (without triggering re-render of entire list)
+      setMessages(prevMessages => 
+        prevMessages.map(msg => 
+          msg.id === userMessage.id 
+            ? { ...msg, s3Url: photoUrl }
+            : msg
+        )
       );
-      setMessages(messagesWithS3);
-      safeSaveMessages(messagesWithS3);
+      // Don't call safeSaveMessages here to avoid extra re-render
       
       console.log('User message updated with S3 URL');
 
