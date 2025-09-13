@@ -1027,18 +1027,18 @@ function App() {
         // Direct bot_response at root level
         botResponse = apiResponse.bot_response;
       } else if (apiResponse.data && apiResponse.data.bot_response) {
-        // bot_response nested in data
+        // bot_response nested in data (this is the actual structure!)
         botResponse = apiResponse.data.bot_response;
       } else if (apiResponse.data && apiResponse.data.message) {
         // Simple message in data object
-        botResponse = { message: apiResponse.data.message };
+        botResponse = { content: apiResponse.data.message };
       }
       
       if (botResponse) {
         console.log('Adding bot response to messages:', botResponse);
         updatedMessages.push({
           id: Date.now() + 1,
-          text: botResponse.message || botResponse,
+          text: botResponse.content || botResponse.message || botResponse,
           sender: 'assistant',
           timestamp: new Date(),
           structured_questions: apiResponse.structured_questions || apiResponse.data?.structured_questions || null,
