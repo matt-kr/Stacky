@@ -60,6 +60,7 @@ function App() {
   const [cameraPreview, setCameraPreview] = useState(null); // { imageUrl, file }
   const [showCameraView, setShowCameraView] = useState(false); // Live camera view
   const [cameraStream, setCameraStream] = useState(null); // Camera stream
+  const [stagedPhotos, setStagedPhotos] = useState([]); // Photos uploaded but not sent yet
 
   // ==========================================================================
   // STATE MANAGEMENT - CHAT FUNCTIONALITY
@@ -294,17 +295,23 @@ function App() {
     }
   };
 
-  // Upload photo to customer return session
+  // Upload photo to customer return session (Stage 1: Upload to S3)
   const uploadReturnPhoto = async (sessionId, file, description = '') => {
     try {
       // Development mode - return mock response
       if (DEVELOPMENT_MODE) {
-        console.log('Development Mode: Mock photo upload');
+        console.log('Development Mode: Mock photo upload to staging');
         await new Promise(resolve => setTimeout(resolve, 400)); // Simulate upload delay
         return {
-          photo_url: `https://mock-s3-bucket.amazonaws.com/photos/${sessionId}/${Date.now()}.jpg`,
-          photo_id: `photo_${Date.now()}`,
-          status: 'uploaded'
+          success: true,
+          data: {
+            photo_url: `https://mock-s3-bucket.amazonaws.com/sessions/${sessionId}/photo_${Date.now()}.jpg`,
+            photo_key: `sessions/${sessionId}/photo_${Date.now()}.jpg`,
+            description: description || 'Customer photo',
+            uploaded_at: new Date().toISOString(),
+            status: 'uploaded'
+          },
+          message: 'Photo uploaded successfully. Use the send message endpoint to include it in the conversation.'
         };
       }
 
@@ -328,6 +335,63 @@ function App() {
       return data;
     } catch (error) {
       console.error('Error uploading photo:', error);
+      throw error;
+    }
+  };
+
+  // Delete staged photo before sending (Step 1.5: Optional cleanup)
+  const deleteReturnPhoto = async (sessionId, photoUrl) => {
+    try {
+      // Development mode - return mock response
+      if (DEVELOPMENT_MODE) {
+        console.log('Development Mode: Mock photo deletion');
+        await new Promise(resolve => setTimeout(resolve, 200));
+        return {
+          success: true,
+          message: 'Photo deleted successfully'
+        };
+      }
+
+      const response = await fetch(`${API_BASE_URL}${ENDPOINTS.uploadPhoto(sessionId)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo_url: photoUrl })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete photo');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+      throw error;
+    }
+  };
+
+  // Send staged photo as message (Step 2: Add to conversation)
+  const sendPhotoMessage = async (sessionId, photoUrl, message = '') => {
+    try {
+      const response = await fetch(`${API_BASE_URL}${ENDPOINTS.sendMessage(sessionId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          message: message || 'Here is my photo',
+          photo_url: photoUrl 
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send photo message');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error sending photo message:', error);
       throw error;
     }
   };
@@ -486,18 +550,8 @@ function App() {
       fileInput.onchange = async (event) => {
         const file = event.target.files[0];
         if (file && file.type.startsWith('image/')) {
-          const reader = new FileReader();
-          reader.onload = async () => {
-            try {
-              // Compress image to avoid memory issues
-              const compressedImageUrl = await compressImage(reader.result, 0.7, 1024);
-              sendImageMessage(compressedImageUrl);
-            } catch (error) {
-              console.warn('Image compression failed, using original:', error);
-              sendImageMessage(reader.result);
-            }
-          };
-          reader.readAsDataURL(file);
+          // Use new 2-step workflow - no need for compression as API handles it
+          sendImageMessage(file);
         }
       };
       fileInput.click();
@@ -641,38 +695,20 @@ function App() {
   
   // Confirm and send the captured/selected photo
   const handleConfirmPhoto = async () => {
-    if (cameraPreview) {
-      let finalImageUrl = cameraPreview.imageUrl;
-      
-      // Compress for Android to avoid JSON parsing issues
-      const isAndroid = /Android/i.test(navigator.userAgent);
-      if (isAndroid) {
-        try {
-          finalImageUrl = await compressImage(cameraPreview.imageUrl, 0.7, 1024);
-        } catch (error) {
-          console.warn('Image compression failed, using original:', error);
-        }
+    if (cameraPreview && cameraPreview.file) {
+      try {
+        setIsLoading(true);
+        setCameraPreview(null); // Clear preview immediately
+        
+        // Use the new 2-step workflow
+        await uploadAndSendPhoto(cameraPreview.file, 'Camera capture');
+        
+      } catch (error) {
+        console.error('Error confirming photo:', error);
+        setError('Failed to send photo. Please try again.');
+      } finally {
+        setIsLoading(false);
       }
-      
-      // Create and send image message
-      const newMessage = {
-        id: Date.now(),
-        text: '',
-        sender: 'user',
-        image: finalImageUrl,
-        timestamp: new Date()
-      };
-      
-      const updatedMessages = [...messages, newMessage];
-      setMessages(updatedMessages);
-      safeSaveMessages(updatedMessages);
-      
-      setCameraPreview(null);
-      
-      // Auto-trigger AI response
-      setTimeout(() => {
-        handleSendMessageWithContext('I\'ve shared an image with you.', updatedMessages);
-      }, 100);
     }
   };
 
@@ -731,63 +767,96 @@ function App() {
   };
 
   // ==========================================================================
-  // MESSAGE SENDING FUNCTIONALITY
+  // MESSAGE SENDING FUNCTIONALITY - NEW 2-STEP PHOTO WORKFLOW
   // ==========================================================================
   
-  // Send image message with device-specific handling
+  // Send image message using new 2-step workflow (Stage → Send)
   const sendImageMessage = async (fileOrDataUrl) => {
-    if (typeof fileOrDataUrl === 'string') {
-      // Already a data URL (from iOS or camera capture)
-      const newMessage = {
-        id: Date.now(),
-        text: '',
-        sender: 'user',
-        image: fileOrDataUrl,
-        timestamp: new Date()
-      };
+    if (!sessionId) {
+      console.error('No session ID available for photo upload');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
       
-      const updatedMessages = [...messages, newMessage];
-      setMessages(updatedMessages);
-      safeSaveMessages(updatedMessages);
+      if (typeof fileOrDataUrl === 'string') {
+        // Data URL - convert to blob first
+        const response = await fetch(fileOrDataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        await uploadAndSendPhoto(file);
+      } else {
+        // File object - use directly
+        await uploadAndSendPhoto(fileOrDataUrl);
+      }
+    } catch (error) {
+      console.error('Error sending image message:', error);
+      setError('Failed to send photo. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Complete photo workflow: Upload → Stage → Send
+  const uploadAndSendPhoto = async (file, description = 'Customer photo') => {
+    try {
+      // Step 1: Upload to S3 (staging)
+      console.log('Uploading photo to staging...');
+      const uploadResult = await uploadReturnPhoto(sessionId, file, description);
       
-      // Auto-trigger AI response
-      setTimeout(() => {
-        handleSendMessageWithContext('I\'ve shared an image with you.', updatedMessages);
-      }, 100);
-    } else {
-      // File object - convert to data URL with compression
-      const reader = new FileReader();
-      reader.onload = async () => {
-        let finalImageUrl = reader.result;
-        
-        // Compress for Android to avoid JSON parsing issues
-        const isAndroid = /Android/i.test(navigator.userAgent);
-        if (isAndroid) {
-          try {
-            finalImageUrl = await compressImage(reader.result, 0.7, 1024);
-          } catch (error) {
-            console.warn('Image compression failed, using original:', error);
-          }
+      if (!uploadResult.success) {
+        throw new Error('Photo upload failed');
+      }
+
+      const photoUrl = uploadResult.data.photo_url;
+      console.log('Photo uploaded successfully:', photoUrl);
+
+      // Step 2: Send photo as message to chatbot
+      console.log('Sending photo message to chatbot...');
+      const messageResult = await sendPhotoMessage(sessionId, photoUrl, 'Here is my photo');
+      
+      if (!messageResult.success) {
+        // If sending fails, try to clean up the staged photo
+        try {
+          await deleteReturnPhoto(sessionId, photoUrl);
+        } catch (cleanupError) {
+          console.warn('Failed to cleanup staged photo:', cleanupError);
         }
-        
-        const newMessage = {
-          id: Date.now(),
-          text: '',
+        throw new Error('Failed to send photo message');
+      }
+
+      // Step 3: Update UI with messages from API response
+      if (messageResult.customer_message) {
+        const customerMsg = {
+          id: messageResult.customer_message.id,
+          text: messageResult.customer_message.message,
           sender: 'user',
-          image: finalImageUrl,
-          timestamp: new Date()
+          timestamp: new Date(messageResult.customer_message.timestamp),
+          image: photoUrl // Show the photo in customer message
         };
+
+        const updatedMessages = [...messages, customerMsg];
         
-        const updatedMessages = [...messages, newMessage];
+        if (messageResult.bot_response) {
+          const botMsg = {
+            id: messageResult.bot_response.id,
+            text: messageResult.bot_response.message,
+            sender: 'assistant',
+            timestamp: new Date(messageResult.bot_response.timestamp)
+          };
+          updatedMessages.push(botMsg);
+        }
+
         setMessages(updatedMessages);
         safeSaveMessages(updatedMessages);
-        
-        // Auto-trigger AI response
-        setTimeout(() => {
-          handleSendMessageWithContext('I\'ve shared an image with you.', updatedMessages);
-        }, 100);
-      };
-      reader.readAsDataURL(fileOrDataUrl);
+      }
+
+      console.log('Photo workflow completed successfully');
+      
+    } catch (error) {
+      console.error('Photo workflow failed:', error);
+      throw error;
     }
   };
 
