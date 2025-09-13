@@ -10,19 +10,20 @@ const API_BASE_URL = 'https://x8jxgxag72.execute-api.us-east-1.amazonaws.com/dev
 let currentSessionId = null;
 let sessionData = null;
 let isLoading = false;
+let refreshInterval = null;
 
 export function installSessionCollector() {
   console.log('🔧 Installing Session Collector...');
   
   // Get initial session ID from localStorage
-  updateSessionId();
+  checkSessionId();
   
   // Monitor localStorage changes for session ID
   const originalSetItem = localStorage.setItem;
   localStorage.setItem = function(key, value) {
     const result = originalSetItem.apply(this, arguments);
     if (key === 'returnSessionId') {
-      updateSessionId();
+      checkSessionId();
     }
     return result;
   };
@@ -31,16 +32,38 @@ export function installSessionCollector() {
   console.log('✅ Session Collector installed successfully');
 }
 
-function updateSessionId() {
+function checkSessionId() {
   const newSessionId = localStorage.getItem('returnSessionId');
   if (newSessionId !== currentSessionId) {
     currentSessionId = newSessionId;
+    
     if (currentSessionId) {
-      fetchSessionData();
+      // Start periodic refresh for active session
+      startPeriodicRefresh();
+      fetchSessionData(); // Initial fetch
     } else {
+      // Stop refresh when no session
+      stopPeriodicRefresh();
       sessionData = null;
       debugBus.logSessionData(null);
     }
+  }
+}
+
+function startPeriodicRefresh() {
+  if (refreshInterval) clearInterval(refreshInterval);
+  
+  refreshInterval = setInterval(() => {
+    if (currentSessionId) {
+      fetchSessionData();
+    }
+  }, 8000); // Refresh every 8 seconds when session is active
+}
+
+function stopPeriodicRefresh() {
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+    refreshInterval = null;
   }
 }
 

@@ -153,26 +153,13 @@ const DebugOverlay = () => {
       case 'session':
         return (
           <div>
-            <div style={{ marginBottom: '10px', display: 'flex', gap: '8px' }}>
-              <button 
-                onClick={() => window.stackyDebug?.refreshSession?.()} 
-                style={{ 
-                  backgroundColor: '#10b981', 
-                  border: 'none', 
-                  color: 'white', 
-                  padding: '4px 8px', 
-                  borderRadius: '3px', 
-                  cursor: 'pointer',
-                  fontSize: '12px'
-                }}
-              >
-                🔄 Refresh
-              </button>
-            </div>
             {debugData.sessionData ? (
               <div style={logEntryStyle}>
                 <div style={{ color: '#10b981', marginBottom: '8px' }}>
-                  Session Data [{formatTime(debugData.sessionData.timestamp)}]
+                  Session Data [{formatTime(debugData.sessionData.timestamp)}] 
+                  <span style={{ color: '#9ca3af', fontSize: '11px', marginLeft: '8px' }}>
+                    Auto-refreshing every 8s
+                  </span>
                 </div>
                 <pre style={{ 
                   color: '#e5e7eb', 
@@ -189,7 +176,7 @@ const DebugOverlay = () => {
               </div>
             ) : (
               <div style={{ color: '#9ca3af', fontStyle: 'italic' }}>
-                No session data available. Use the refresh button to fetch session information.
+                No session data available. Session will appear automatically when chatbot session starts.
               </div>
             )}
           </div>
