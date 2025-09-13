@@ -1411,7 +1411,10 @@ function App() {
             setCurrentQuestion(sessionData.data.current_question || null);
             
             // Load messages from session (with null check)
+            console.log('Session details response:', sessionData);
+            
             if (sessionData.data.messages && Array.isArray(sessionData.data.messages)) {
+              console.log('Found messages in session data:', sessionData.data.messages);
               const sessionMessages = sessionData.data.messages.map(msg => ({
                 id: msg.id,
                 text: msg.message,
@@ -1419,9 +1422,11 @@ function App() {
                 timestamp: new Date(msg.timestamp),
                 image: msg.metadata?.photo?.url || null
               }));
+              console.log('Mapped session messages:', sessionMessages);
               setMessages(sessionMessages);
             } else {
               console.warn('No messages found in session data, keeping existing messages');
+              console.log('Session data structure:', sessionData.data);
             }
           } else {
             // Session expired or completed, clear it
