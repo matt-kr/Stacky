@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 
-export default function Message({ message }) {
+const Message = memo(function Message({ message }) {
   // State for managing image loading transition
   const [imageUrl, setImageUrl] = useState(null);
   const [isS3Loaded, setIsS3Loaded] = useState(false);
   const imageRef = useRef(null);
+  const cleanupRef = useRef(null);
   
   useEffect(() => {
     if (message.image || message.blobUrl || message.s3Url) {
@@ -46,13 +47,13 @@ export default function Message({ message }) {
               setIsS3Loaded(true);
             }
             
-            // Clean up blob URL after transition
-            setTimeout(() => {
+            // Clean up blob URL after transition - store cleanup function
+            cleanupRef.current = setTimeout(() => {
               if (message.blobUrl) {
                 URL.revokeObjectURL(message.blobUrl);
                 console.log('Cleaned up blob URL');
               }
-            }, 400);
+            }, 1000); // Increased delay to prevent premature cleanup
           };
           img.onerror = () => {
             console.error('Failed to load S3 image, keeping blob URL');
@@ -70,13 +71,17 @@ export default function Message({ message }) {
       }
     }
     
-    // Cleanup on unmount
+    // Cleanup on unmount or message change
     return () => {
+      if (cleanupRef.current) {
+        clearTimeout(cleanupRef.current);
+      }
+      // Only cleanup blob if we're unmounting, not on re-render
       if (message.blobUrl && isS3Loaded) {
         URL.revokeObjectURL(message.blobUrl);
       }
     };
-  }, [message.image, message.blobUrl, message.s3Url, isS3Loaded]);
+  }, [message.image, message.blobUrl, message.s3Url]); // Removed isS3Loaded from deps to prevent re-runs
 
   // The 'message' prop will have { text, sender, timestamp, image?, structured_questions?, next_steps? }
   const isUser = message.sender === 'user';
@@ -181,4 +186,6 @@ export default function Message({ message }) {
       </div>
     </div>
   );
-}
+});
+
+export default Message;

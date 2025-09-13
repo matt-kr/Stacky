@@ -875,7 +875,7 @@ function App() {
       const photoUrl = uploadResult.data.photo_url;
       console.log('Photo uploaded successfully:', photoUrl);
       
-      // Update the user message with S3 URL (without triggering re-render of entire list)
+      // Update the user message with S3 URL and trigger AI response
       setMessages(prevMessages => {
         const updatedMessages = prevMessages.map(msg => 
           msg.id === userMessage.id 
@@ -883,9 +883,39 @@ function App() {
             : msg
         );
         
-        // Store updated messages for AI response
-        setTimeout(() => {
-          handleSendMessageWithContext('I\'ve shared an image with you.', updatedMessages);
+        // Trigger AI response with photo URL directly
+        setTimeout(async () => {
+          try {
+            setIsLoading(true);
+            console.log('Sending photo message to AI with S3 URL:', photoUrl);
+            
+            // Send message with photo URL to API
+            const apiResponse = await sendReturnMessage(sessionId, 'I\'ve shared an image with you.', photoUrl);
+            
+            if (apiResponse?.success) {
+              // Extract bot response
+              const botResponse = apiResponse.bot_response || apiResponse.data?.bot_response;
+              if (botResponse) {
+                const botText = botResponse.content || botResponse.message || botResponse;
+                
+                const aiMessage = {
+                  id: Date.now() + 1,
+                  text: botText,
+                  sender: 'assistant',
+                  timestamp: new Date(),
+                  structured_questions: apiResponse.structured_questions || apiResponse.data?.structured_questions || null,
+                  next_steps: apiResponse.next_steps || apiResponse.data?.next_steps || null
+                };
+                
+                setMessages(prev => [...prev, aiMessage]);
+                safeSaveMessages([...updatedMessages, aiMessage]);
+              }
+            }
+          } catch (error) {
+            console.error('Error getting AI response for photo:', error);
+          } finally {
+            setIsLoading(false);
+          }
         }, 100);
         
         return updatedMessages;
