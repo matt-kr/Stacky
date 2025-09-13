@@ -323,6 +323,9 @@ function App() {
       }
 
       console.log(`Uploading photo to: ${API_BASE_URL}${ENDPOINTS.uploadPhoto(sessionId)}`);
+      console.log('File details:', { name: file.name, size: file.size, type: file.type });
+      console.log('FormData contents:', Array.from(formData.entries()));
+      
       const response = await fetch(`${API_BASE_URL}${ENDPOINTS.uploadPhoto(sessionId)}`, {
         method: 'POST',
         body: formData
@@ -334,11 +337,13 @@ function App() {
         const errorText = await response.text();
         console.error('Photo upload error response:', errorText);
         
+        let errorMessage = `Upload failed with status ${response.status}`;
         try {
           const error = JSON.parse(errorText);
-          throw new Error(error.error || `Upload failed with status ${response.status}`);
+          errorMessage = error.error || error.message || errorMessage;
+          throw new Error(`${errorMessage}: ${JSON.stringify(error)}`);
         } catch (parseError) {
-          throw new Error(`Upload failed with status ${response.status}: ${errorText}`);
+          throw new Error(`${errorMessage}: ${errorText}`);
         }
       }
 
@@ -1145,6 +1150,7 @@ function App() {
       
       if (lastUserMessage && lastUserMessage.image) {
         try {
+          console.log('Attempting to upload photo to staging area...');
           const uploadResult = await uploadReturnPhoto(currentSessionId, lastUserMessage.image);
           if (uploadResult && uploadResult.photo_url) {
             imageUrl = uploadResult.photo_url;
@@ -1152,7 +1158,32 @@ function App() {
           }
         } catch (uploadError) {
           console.error('Failed to upload image:', uploadError);
-          // Continue without image if upload fails
+          
+          // Add error message to chat to inform user
+          const errorMessage = {
+            id: Date.now() - 1,
+            text: "Sorry, there was an issue uploading your photo. I'll process your message without the image for now. Please try uploading the photo again if needed.",
+            sender: 'assistant',
+            timestamp: new Date(),
+            isError: true
+          };
+          
+          const messagesWithError = [...(retryCount === 0 ? messages : messages.slice(0, -1))];
+          if (retryCount === 0) {
+            messagesWithError.push({
+              id: Date.now(),
+              text,
+              sender: 'user',
+              timestamp: new Date(),
+              image: lastUserMessage?.image || null
+            });
+          }
+          messagesWithError.push(errorMessage);
+          
+          setMessages(messagesWithError);
+          safeSaveMessages(messagesWithError);
+          
+          // Continue without image
         }
       }
 
