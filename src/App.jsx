@@ -876,13 +876,20 @@ function App() {
       console.log('Photo uploaded successfully:', photoUrl);
       
       // Update the user message with S3 URL (without triggering re-render of entire list)
-      setMessages(prevMessages => 
-        prevMessages.map(msg => 
+      setMessages(prevMessages => {
+        const updatedMessages = prevMessages.map(msg => 
           msg.id === userMessage.id 
             ? { ...msg, s3Url: photoUrl }
             : msg
-        )
-      );
+        );
+        
+        // Store updated messages for AI response
+        setTimeout(() => {
+          handleSendMessageWithContext('I\'ve shared an image with you.', updatedMessages);
+        }, 100);
+        
+        return updatedMessages;
+      });
       // Don't call safeSaveMessages here to avoid extra re-render
       
       console.log('User message updated with S3 URL');
@@ -904,10 +911,7 @@ function App() {
       }
 
       // Step 3: Add AI response to chat
-      // Trigger AI response using existing workflow
-      setTimeout(() => {
-        handleSendMessageWithContext('I\'ve shared an image with you.', messagesWithS3);
-      }, 100);
+      // AI response is triggered above in the setTimeout
 
       console.log('Photo workflow completed successfully');
       
