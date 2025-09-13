@@ -1448,34 +1448,32 @@ function App() {
             setSessionStatus('initializing');
             const sessionData = await createReturnSession(customerInfo);
             if (sessionData && sessionData.success && sessionData.data) {
-          setSessionId(sessionData.data.session_id);
-          setCurrentStep(sessionData.data.current_step);
-          setCustomerInfo(sessionData.data.customer_info || {});
-          setSessionStatusAnimating(true);
-          setTimeout(() => setSessionStatus('active'), 100); // Brief delay before starting fade              // Handle initial AI message from chat_history
-              const chatHistory = sessionData.data.chat_history;
-              if (chatHistory && Array.isArray(chatHistory) && chatHistory.length > 0) {
-                console.log('Found chat history in new session:', chatHistory);
-                const initialMessages = chatHistory.map(msg => ({
-                  id: msg.id,
-                  text: msg.message,
-                  sender: msg.type === 'customer' ? 'user' : 'assistant',
-                  timestamp: new Date(msg.timestamp),
-                  image: msg.metadata?.photo?.url || null
-                }));
-                console.log('Setting initial messages from chat history:', initialMessages);
-                setMessages(initialMessages);
-                safeSaveMessages(initialMessages);
-              } else if (sessionData.initial_message) {
-                // Fallback for old format
-                const aiMessage = {
-                  id: Date.now(),
-                  text: sessionData.initial_message.message || sessionData.initial_message.text || sessionData.initial_message,
-                  sender: 'assistant',
-                  timestamp: new Date()
-                };
-                setMessages([aiMessage]);
-                safeSaveMessages([aiMessage]);
+              setSessionId(sessionData.data.session_id);
+              setCurrentStep(sessionData.data.current_step);
+              setCustomerInfo(sessionData.data.customer_info || {});
+              setSessionStatusAnimating(true);
+              setTimeout(() => setSessionStatus('active'), 100); // Brief delay before starting fade
+              
+              // Fetch session details to get chat_history (creation response doesn't include messages)
+              try {
+                console.log('Fetching session details after creation to get chat history...');
+                const detailsResponse = await getSessionDetails(sessionData.data.session_id);
+                if (detailsResponse.success && detailsResponse.data.chat_history) {
+                  const chatHistory = detailsResponse.data.chat_history;
+                  console.log('Found chat history after session creation:', chatHistory);
+                  const initialMessages = chatHistory.map(msg => ({
+                    id: msg.id,
+                    text: msg.message,
+                    sender: msg.type === 'customer' ? 'user' : 'assistant',
+                    timestamp: new Date(msg.timestamp),
+                    image: msg.metadata?.photo?.url || null
+                  }));
+                  console.log('Setting initial messages from fetched chat history:', initialMessages);
+                  setMessages(initialMessages);
+                  safeSaveMessages(initialMessages);
+                }
+              } catch (detailsError) {
+                console.error('Error fetching session details after creation:', detailsError);
               }
               
               // Save session to localStorage
