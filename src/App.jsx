@@ -8,7 +8,7 @@ import MessageList from './components/MessageList';
 // ============================================================================
 
 // Customer Returns API Configuration
-const API_BASE_URL = '/api'; // Use Vite proxy instead of direct AWS URL
+const API_BASE_URL = 'https://x8jxgxag72.execute-api.us-east-1.amazonaws.com/dev-test/api'; // Production AWS API Gateway URL
 const ENDPOINTS = {
   createSession: '/customer-returns/sessions',
   sendMessage: (sessionId) => `/customer-returns/sessions/${sessionId}/messages`,
